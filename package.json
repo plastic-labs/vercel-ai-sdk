@@ -1,0 +1,98 @@
+{
+  "name": "@honcho-ai/tools",
+  "version": "0.1.0",
+  "description": "Honcho memory tools for AI SDKs -- Vercel AI SDK, OpenAI, Mastra",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./ai-sdk": {
+      "import": "./dist/ai-sdk/index.js",
+      "types": "./dist/ai-sdk/index.d.ts"
+    },
+    "./openai": {
+      "import": "./dist/openai/index.js",
+      "types": "./dist/openai/index.d.ts"
+    },
+    "./mastra": {
+      "import": "./dist/mastra/index.js",
+      "types": "./dist/mastra/index.d.ts"
+    },
+    "./multi-agent": {
+      "import": "./dist/multi-agent/index.js",
+      "types": "./dist/multi-agent/index.d.ts"
+    },
+    "./dreaming": {
+      "import": "./dist/dreaming/index.js",
+      "types": "./dist/dreaming/index.d.ts"
+    },
+    "./identity": {
+      "import": "./dist/identity/index.js",
+      "types": "./dist/identity/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --env-file=.env src/test.ts",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "ai",
+    "ai-sdk",
+    "honcho",
+    "memory",
+    "personalization",
+    "tools",
+    "vercel-ai",
+    "openai",
+    "mastra"
+  ],
+  "author": "Plastic Labs <hello@plasticlabs.ai>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/plastic-labs/vercel-ai-sdk-honcho"
+  },
+  "dependencies": {
+    "@honcho-ai/core": "^2.2.0"
+  },
+  "peerDependencies": {
+    "ai": "^5.0.0",
+    "zod": "^3.23.0 || ^4.0.0",
+    "@ai-sdk/provider": "^2.0.0 || ^3.0.0",
+    "@mastra/core": ">=0.10.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": false
+    },
+    "@ai-sdk/provider": {
+      "optional": true
+    },
+    "@mastra/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/anthropic": "^3.0.46",
+    "@ai-sdk/openai": "^3.0.33",
+    "@ai-sdk/provider": "^2.0.0",
+    "@mastra/core": "^0.10.0",
+    "@types/node": "^22.0.0",
+    "ai": "^5.0.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.0",
+    "zod": "^3.24.0"
+  }
+}
