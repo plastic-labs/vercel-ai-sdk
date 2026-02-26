@@ -1,7 +1,7 @@
 {
-  "name": "@honcho-ai/tools",
+  "name": "@honcho/ai-sdk",
   "version": "0.1.0",
-  "description": "Honcho memory tools for AI SDKs -- Vercel AI SDK, OpenAI, Mastra",
+  "description": "Honcho memory for AI SDKs -- persistent identity, theory-of-mind, dialectic reasoning",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

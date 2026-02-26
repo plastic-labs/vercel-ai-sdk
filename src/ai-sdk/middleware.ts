@@ -15,10 +15,14 @@ import {
  * 1. Injects Honcho peer/session context into system prompts (transformParams)
  * 2. Persists user + assistant messages to Honcho after generation (wrapGenerate/wrapStream)
  *
+ * @deprecated Use `honcho.session(id, peers).middleware()` instead for correct
+ * dual-peer attribution. This single-peer middleware uses the same peerId for
+ * both user and assistant messages.
+ *
  * @example
  * ```ts
  * import { wrapLanguageModel } from "ai";
- * import { createHonchoMiddleware } from "@honcho-ai/tools/ai-sdk";
+ * import { createHonchoMiddleware } from "@honcho/ai-sdk";
  *
  * const model = wrapLanguageModel({
  *   model: anthropic("claude-sonnet-4-20250514"),

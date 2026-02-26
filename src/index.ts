@@ -4,9 +4,14 @@ export type {
   HonchoMiddlewareOptions,
   HonchoContextData,
   ResolvedHonchoConfig,
+  HonchoSessionPeers,
+  HonchoSessionOptions,
+  PeerRoleMap,
+  ResolvedSessionConfig,
 } from "./types.js";
 
 export { defaultFormatContext } from "./shared/context.js";
+export { contextToSystemPrompt, contextToMessages } from "./shared/converters.js";
 export { TOOL_DESCRIPTIONS, PARAM_DESCRIPTIONS, DEFAULTS } from "./shared/descriptions.js";
 
 // Frontier modules

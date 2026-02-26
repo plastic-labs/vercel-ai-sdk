@@ -196,7 +196,7 @@ export function honchoMastraSaveConclusionTool(config: HonchoMastraToolsConfig) 
  * @example
  * ```ts
  * import { Agent } from "@mastra/core/agent";
- * import { honchoMastraTools } from "@honcho-ai/tools/mastra";
+ * import { honchoMastraTools } from "@honcho/ai-sdk/mastra";
  *
  * const tools = honchoMastraTools({ client, workspaceId, defaultPeerId: "user-123" });
  *

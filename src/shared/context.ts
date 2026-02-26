@@ -5,6 +5,7 @@ import type {
   HonchoContextData,
   HonchoMiddlewareOptions,
   ResolvedHonchoConfig,
+  ResolvedSessionConfig,
 } from "../types.js";
 
 /**
@@ -166,6 +167,63 @@ export async function persistMessages(
     .map((m) => ({
       content: m.content,
       peer_id: m.peerId ?? peerId,
+    }));
+
+  if (honchoMessages.length === 0) return;
+
+  await client.workspaces.sessions.messages.create(workspaceId, sessionId, {
+    messages: honchoMessages,
+  });
+}
+
+// ── Session-aware functions ────────────────────────────────────
+
+/**
+ * Fetch context from Honcho using the session's dual-peer perspective.
+ * Fetches from the assistant's perspective about the user.
+ */
+export async function fetchSessionContext(
+  config: ResolvedSessionConfig
+): Promise<HonchoContextData> {
+  const { client, workspaceId, sessionId, userPeerId, assistantPeerId } = config;
+
+  const ctx = await client.workspaces.sessions.context(
+    workspaceId,
+    sessionId,
+    {
+      peer_perspective: assistantPeerId,
+      peer_target: userPeerId,
+      summary: config.includeSummary,
+      tokens: config.contextTokens,
+    }
+  );
+
+  return {
+    representation: ctx.peer_representation ?? null,
+    peerCard: ctx.peer_card ?? null,
+    summary: ctx.summary?.content ?? null,
+    messages: ctx.messages?.map((m) => ({
+      content: m.content,
+      peer_id: m.peer_id,
+    })),
+  };
+}
+
+/**
+ * Persist messages to a Honcho session with correct dual-peer attribution.
+ * Maps role: "user" to userPeerId and role: "assistant" to assistantPeerId.
+ */
+export async function persistSessionMessages(
+  config: ResolvedSessionConfig,
+  messages: Array<{ role: string; content: string }>
+): Promise<void> {
+  const { client, workspaceId, sessionId, userPeerId, assistantPeerId } = config;
+
+  const honchoMessages = messages
+    .filter((m) => m.content && (m.role === "user" || m.role === "assistant"))
+    .map((m) => ({
+      content: m.content,
+      peer_id: m.role === "assistant" ? assistantPeerId : userPeerId,
     }));
 
   if (honchoMessages.length === 0) return;

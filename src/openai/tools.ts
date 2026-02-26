@@ -36,7 +36,7 @@ export interface OpenAIToolExecutor {
  *
  * @example
  * ```ts
- * import { honchoOpenAITools } from "@honcho-ai/tools/openai";
+ * import { honchoOpenAITools } from "@honcho/ai-sdk/openai";
  * import OpenAI from "openai";
  *
  * const openai = new OpenAI();

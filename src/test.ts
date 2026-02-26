@@ -1,5 +1,5 @@
 /**
- * Live integration test for @honcho-ai/tools
+ * Live integration test for @honcho/ai-sdk
  *
  * Required env vars:
  *   HONCHO_API_KEY       - Your Honcho API key
@@ -229,10 +229,114 @@ async function testWithLLM(workspaceId: string) {
   }
 }
 
+// ── Test 5: Session-based API ──────────────────────────────────────
+
+async function testSessionAPI(workspaceId: string) {
+  console.log("\n--- Test 5: Session-based API ---\n");
+
+  const honcho = createHoncho({
+    apiKey: HONCHO_API_KEY,
+    workspaceId,
+  });
+
+  const testSessionId = SESSION_ID ?? `test-session-${Date.now()}`;
+  const testUserPeerId = PEER_ID!;
+  const testAssistantPeerId = `assistant-${testUserPeerId}`;
+
+  // 1. Session handle is synchronous
+  const session = honcho.session(testSessionId, {
+    user: testUserPeerId,
+    assistant: testAssistantPeerId,
+  });
+
+  console.log("Session created (sync):", {
+    sessionId: session.sessionId,
+    userPeerId: session.userPeerId,
+    assistantPeerId: session.assistantPeerId,
+  });
+
+  // Verify peerMap
+  console.log("Peer map:", session.peerMap);
+
+  // 2. ensure() creates backend resources
+  try {
+    await session.ensure();
+    console.log("ensure() succeeded -- session + peers created on backend");
+  } catch (e: any) {
+    console.log("ensure() error:", e.message);
+  }
+
+  // 3. Scoped tools
+  const tools = session.tools();
+  console.log("Session-scoped tools:", Object.keys(tools).join(", "));
+
+  // Execute honcho_chat via session tools
+  try {
+    const chatResult = await tools.honcho_chat.execute!(
+      { query: "What are this user's interests?" },
+      { toolCallId: "session-test-1", messages: [], abortSignal: AbortSignal.timeout(30000) }
+    );
+    console.log("Session honcho_chat:", JSON.stringify(chatResult).slice(0, 300));
+  } catch (e: any) {
+    console.log("Session honcho_chat error:", e.message);
+  }
+
+  // 4. Full LLM flow with session middleware (if key available)
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+
+  if (!hasOpenAI && !hasAnthropic) {
+    console.log("Skipping LLM session test (no API key)");
+    return;
+  }
+
+  const { generateText, wrapLanguageModel } = await import("ai");
+
+  let baseModel;
+  if (hasAnthropic) {
+    const { anthropic } = await import("@ai-sdk/anthropic");
+    baseModel = anthropic("claude-haiku-4-5-20251001");
+    console.log("Session LLM test using: Anthropic claude-haiku-4-5-20251001");
+  } else {
+    const { openai } = await import("@ai-sdk/openai");
+    baseModel = openai("gpt-4o-mini");
+    console.log("Session LLM test using: OpenAI gpt-4o-mini");
+  }
+
+  const model = wrapLanguageModel({
+    model: baseModel,
+    middleware: session.middleware(),
+  });
+
+  const { text, steps } = await generateText({
+    model,
+    tools: session.tools(),
+    maxSteps: 3,
+    prompt: "What do you know about me? Use your memory tools to find out.",
+  });
+
+  console.log("Session response:", text || "(empty)");
+  console.log("Steps:", steps.length);
+  for (const step of steps) {
+    if (step.toolCalls?.length) {
+      for (const tc of step.toolCalls) {
+        const argsStr = tc.args ? JSON.stringify(tc.args).slice(0, 100) : "{}";
+        console.log(`  Tool call: ${tc.toolName}(${argsStr})`);
+      }
+    }
+    if (step.toolResults?.length) {
+      for (const tr of step.toolResults) {
+        const resultStr = tr.result != null ? JSON.stringify(tr.result).slice(0, 150) : "(no result)";
+        console.log(`  Tool result: ${tr.toolName} -> ${resultStr}`);
+      }
+    }
+  }
+}
+
 // ── Run ────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log("=== @honcho-ai/tools Integration Test ===");
+  console.log("=== @honcho/ai-sdk Integration Test ===");
   console.log(`Workspace: ${WORKSPACE_ID}`);
   console.log(`Peer: ${PEER_ID}`);
   console.log(`Session: ${SESSION_ID ?? "(none)"}`);
@@ -241,6 +345,7 @@ async function main() {
   await testAISDKTools(workspaceId);
   await testOpenAITools(workspaceId);
   await testWithLLM(workspaceId);
+  await testSessionAPI(workspaceId);
 
   console.log("\n=== Done ===");
 }

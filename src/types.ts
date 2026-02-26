@@ -80,3 +80,64 @@ export interface ResolvedHonchoConfig {
   includeSummary: boolean;
   formatContext: (context: HonchoContextData) => string;
 }
+
+// ── Session-based API types ─────────────────────────────────────
+
+/**
+ * Named peer identifiers for a session.
+ */
+export interface HonchoSessionPeers {
+  /** Identifier for the human user peer. */
+  user: string;
+  /** Identifier for the AI assistant peer. */
+  assistant: string;
+}
+
+/**
+ * Options for configuring a session handle.
+ */
+export interface HonchoSessionOptions {
+  /** Context retrieval settings. */
+  context?: {
+    /** Max tokens for context retrieval. */
+    tokens?: number;
+    /** Include session summary. Default: true. */
+    includeSummary?: boolean;
+    /** Custom context formatter. */
+    format?: (context: HonchoContextData) => string;
+  };
+  /** Message persistence settings. */
+  persistence?: {
+    /** Whether to persist messages. Default: true. */
+    enabled?: boolean;
+    /** Error handler for persistence failures. Default: console.warn. */
+    onError?: (error: unknown) => void;
+  };
+  /** Additional session config passed to getOrCreate. */
+  sessionConfig?: Record<string, unknown>;
+}
+
+/**
+ * Maps peer IDs to user/assistant roles for context formatting.
+ */
+export interface PeerRoleMap {
+  userPeerId: string;
+  assistantPeerId: string;
+}
+
+/**
+ * Fully resolved session configuration with all defaults applied.
+ */
+export interface ResolvedSessionConfig {
+  client: Honcho;
+  workspaceId: string;
+  sessionId: string;
+  userPeerId: string;
+  assistantPeerId: string;
+  injectContext: boolean;
+  persistMessages: boolean;
+  contextTokens: number;
+  includeSummary: boolean;
+  formatContext: (context: HonchoContextData) => string;
+  onPersistenceError: (error: unknown) => void;
+}
