@@ -31,6 +31,53 @@ export interface OpenAIToolExecutor {
   execute: (name: string, args: Record<string, unknown>) => Promise<string>;
 }
 
+function parseBooleanArg(
+  value: unknown,
+  fallback: boolean,
+  fieldName: string
+): boolean {
+  if (value == null) return fallback;
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+
+  throw new Error(`${fieldName} must be a boolean`);
+}
+
+function parseIntegerArg(
+  value: unknown,
+  fallback: number,
+  fieldName: string,
+  range: { min: number; max?: number }
+): number {
+  if (value == null) return fallback;
+
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error(`${fieldName} must be a number`);
+  }
+
+  const intValue = Math.floor(numericValue);
+  if (intValue < range.min) {
+    throw new Error(`${fieldName} must be >= ${range.min}`);
+  }
+  if (range.max != null && intValue > range.max) {
+    throw new Error(`${fieldName} must be <= ${range.max}`);
+  }
+
+  return intValue;
+}
+
 /**
  * Create OpenAI-compatible tool definitions and executor for Honcho.
  *
@@ -184,11 +231,23 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
       const target = (args.peerId as string) ?? defaultPeerId;
       const observer = (args.observerId as string) ?? defaultObserverPeerId ?? target;
       const session = (args.sessionId as string) ?? defaultSessionId;
-      const includeSummary = (args.includeSummary as boolean) ?? true;
-      const tokensRaw = (args.tokens as number) ?? DEFAULTS.contextTokens;
-      const messageLimitRaw = (args.messageLimit as number) ?? DEFAULTS.contextMessageLimit;
-      const tokens = Math.max(1, Math.floor(tokensRaw));
-      const messageLimit = Math.min(50, Math.max(1, Math.floor(messageLimitRaw)));
+      const includeSummary = parseBooleanArg(
+        args.includeSummary,
+        true,
+        "includeSummary"
+      );
+      const tokens = parseIntegerArg(
+        args.tokens,
+        DEFAULTS.contextTokens,
+        "tokens",
+        { min: 1 }
+      );
+      const messageLimit = parseIntegerArg(
+        args.messageLimit,
+        DEFAULTS.contextMessageLimit,
+        "messageLimit",
+        { min: 1, max: 50 }
+      );
 
       if (!target) throw new Error("peerId is required");
       if (!observer) throw new Error("observerId is required");

@@ -7,7 +7,7 @@ import type {
   ResolvedSessionConfig,
 } from "../types.js";
 import { DEFAULTS } from "../shared/descriptions.js";
-import { defaultFormatContext, fetchSessionContext, persistSessionMessages } from "../shared/context.js";
+import { fetchSessionContext, persistSessionMessages } from "../shared/context.js";
 import { contextToSystemPrompt } from "../shared/converters.js";
 import { honchoTools } from "./tools.js";
 import type { HonchoToolsConfig } from "./tools.js";
@@ -60,7 +60,9 @@ export function createSession(
     assistantPeerId: peers.assistant,
   };
 
-  const formatContext = options?.context?.format ?? defaultFormatContext;
+  const formatContext =
+    options?.context?.format ??
+    ((context: HonchoContextData) => contextToSystemPrompt(context, peerMap));
   const onPersistenceError = options?.persistence?.onError ?? ((err) => console.warn("[honcho] persistence error:", err));
 
   const resolvedConfig: ResolvedSessionConfig = {
@@ -101,7 +103,11 @@ export function createSession(
 
   function ensure(): Promise<void> {
     if (!ensurePromise) {
-      ensurePromise = doEnsure();
+      ensurePromise = doEnsure().catch((err) => {
+        // Allow retry after transient initialization failures.
+        ensurePromise = null;
+        throw err;
+      });
     }
     return ensurePromise;
   }
@@ -207,7 +213,7 @@ export function createSessionMiddleware(
       if (!config.injectContext) return params;
 
       const contextData = await fetchSessionContext(config);
-      const contextText = contextToSystemPrompt(contextData, peerMap);
+      const contextText = config.formatContext(contextData);
 
       if (!contextText) return params;
 
