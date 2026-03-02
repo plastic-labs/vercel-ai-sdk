@@ -4,27 +4,6 @@ Persistent memory and user modeling for the [Vercel AI SDK](https://sdk.vercel.a
 
 `@honcho/ai-sdk` wraps any AI SDK model with [Honcho](https://honcho.dev) — giving it a continuously-updated understanding of who it's talking to, automatically injected into each generation and persisted across sessions.
 
-## Architecture
-
-```mermaid
-flowchart TD
-    App["Your App"] -->|"generateText / streamText"| MW["Session Middleware"]
-    MW -->|"fetch context"| HB["Honcho Backend"]
-    HB -->|"representation + card + summary"| MW
-    MW -->|"inject into system prompt"| LM["Language Model"]
-    LM -->|"response"| MW
-    MW -->|"persist user + assistant messages"| HB
-
-    subgraph Session ["Session (dual-peer identity)"]
-        UP["User Peer\nobserve_me: true"]
-        AP["Assistant Peer\nobserve_others: true"]
-    end
-
-    HB <-->|"builds model of user"| Session
-```
-
-Each session tracks two peers: the **user** (whose messages are observed and modeled) and the **assistant** (whose perspective shapes what context gets retrieved). Honcho continuously updates its representation of the user as the conversation evolves.
-
 ## Install
 
 ```bash
