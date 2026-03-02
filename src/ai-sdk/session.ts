@@ -241,13 +241,7 @@ export function createSessionMiddleware(
       };
     },
 
-    wrapGenerate: async ({
-      doGenerate,
-      params,
-    }: {
-      doGenerate: () => Promise<any>;
-      params: any;
-    }) => {
+    wrapGenerate: async ({ doGenerate, params }: any) => {
       const result = await doGenerate();
 
       if (!config.persistMessages) return result;
@@ -280,13 +274,7 @@ export function createSessionMiddleware(
       return result;
     },
 
-    wrapStream: async ({
-      doStream,
-      params,
-    }: {
-      doStream: () => Promise<any>;
-      params: any;
-    }) => {
+    wrapStream: async ({ doStream, params }: any) => {
       const result = await doStream();
 
       if (!config.persistMessages) return result;

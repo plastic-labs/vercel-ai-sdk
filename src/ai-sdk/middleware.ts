@@ -87,13 +87,7 @@ export function createHonchoMiddleware(
       };
     },
 
-    wrapGenerate: async ({
-      doGenerate,
-      params,
-    }: {
-      doGenerate: () => Promise<any>;
-      params: any;
-    }) => {
+    wrapGenerate: async ({ doGenerate, params }: any) => {
       const result = await doGenerate();
 
       const callOptions = (params.providerOptions?.honcho ?? {}) as HonchoCallOptions;
@@ -130,13 +124,7 @@ export function createHonchoMiddleware(
       return result;
     },
 
-    wrapStream: async ({
-      doStream,
-      params,
-    }: {
-      doStream: () => Promise<any>;
-      params: any;
-    }) => {
+    wrapStream: async ({ doStream, params }: any) => {
       const result = await doStream();
 
       const callOptions = (params.providerOptions?.honcho ?? {}) as HonchoCallOptions;
