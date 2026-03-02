@@ -1,8 +1,9 @@
 {
-  "name": "@honcho-ai/tools",
+  "name": "@honcho/ai-sdk",
   "version": "0.1.0",
-  "description": "Honcho memory tools for AI SDKs -- Vercel AI SDK, OpenAI, Mastra",
+  "description": "Honcho memory for the Vercel AI SDK -- persistent identity, theory-of-mind, dialectic reasoning",
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -19,10 +20,6 @@
       "import": "./dist/openai/index.js",
       "types": "./dist/openai/index.d.ts"
     },
-    "./mastra": {
-      "import": "./dist/mastra/index.js",
-      "types": "./dist/mastra/index.d.ts"
-    },
     "./multi-agent": {
       "import": "./dist/multi-agent/index.js",
       "types": "./dist/multi-agent/index.d.ts"
@@ -34,17 +31,22 @@
     "./identity": {
       "import": "./dist/identity/index.js",
       "types": "./dist/identity/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "tsx --env-file=.env src/test.ts",
-    "prepublishOnly": "bun run build"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck",
+    "publish:check": "npm run typecheck && npm pack --dry-run"
   },
   "keywords": [
     "ai",
@@ -54,23 +56,31 @@
     "personalization",
     "tools",
     "vercel-ai",
-    "openai",
-    "mastra"
+    "openai"
   ],
   "author": "Plastic Labs <hello@plasticlabs.ai>",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/plastic-labs/vercel-ai-sdk-honcho"
+    "url": "git+https://github.com/plastic-labs/vercel-ai-sdk-package.git"
+  },
+  "homepage": "https://github.com/plastic-labs/vercel-ai-sdk-package#readme",
+  "bugs": {
+    "url": "https://github.com/plastic-labs/vercel-ai-sdk-package/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@honcho-ai/core": "^2.2.0"
   },
   "peerDependencies": {
-    "ai": "^5.0.0",
+    "ai": "^6.0.0",
     "zod": "^3.23.0 || ^4.0.0",
-    "@ai-sdk/provider": "^2.0.0 || ^3.0.0",
-    "@mastra/core": ">=0.10.0"
+    "@ai-sdk/provider": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "ai": {
@@ -78,21 +88,12 @@
     },
     "@ai-sdk/provider": {
       "optional": true
-    },
-    "@mastra/core": {
-      "optional": true
     }
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "^3.0.46",
-    "@ai-sdk/openai": "^3.0.33",
-    "@ai-sdk/provider": "^2.0.0",
-    "@mastra/core": "^0.10.0",
     "@types/node": "^22.0.0",
-    "ai": "^5.0.0",
     "tsup": "^8.5.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.7.0",
-    "zod": "^3.24.0"
+    "typescript": "^5.7.0"
   }
 }

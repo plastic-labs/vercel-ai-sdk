@@ -31,12 +31,59 @@ export interface OpenAIToolExecutor {
   execute: (name: string, args: Record<string, unknown>) => Promise<string>;
 }
 
+function parseBooleanArg(
+  value: unknown,
+  fallback: boolean,
+  fieldName: string
+): boolean {
+  if (value == null) return fallback;
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+
+  throw new Error(`${fieldName} must be a boolean`);
+}
+
+function parseIntegerArg(
+  value: unknown,
+  fallback: number,
+  fieldName: string,
+  range: { min: number; max?: number }
+): number {
+  if (value == null) return fallback;
+
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error(`${fieldName} must be a number`);
+  }
+
+  const intValue = Math.floor(numericValue);
+  if (intValue < range.min) {
+    throw new Error(`${fieldName} must be >= ${range.min}`);
+  }
+  if (range.max != null && intValue > range.max) {
+    throw new Error(`${fieldName} must be <= ${range.max}`);
+  }
+
+  return intValue;
+}
+
 /**
  * Create OpenAI-compatible tool definitions and executor for Honcho.
  *
  * @example
  * ```ts
- * import { honchoOpenAITools } from "@honcho-ai/tools/openai";
+ * import { honchoOpenAITools } from "@honcho/ai-sdk/openai";
  * import OpenAI from "openai";
  *
  * const openai = new OpenAI();
@@ -70,6 +117,40 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
             peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
           },
           required: ["query"],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "honcho_context",
+        description: TOOL_DESCRIPTIONS.getContext,
+        parameters: {
+          type: "object",
+          properties: {
+            peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
+            sessionId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.sessionId,
+            },
+            includeSummary: {
+              type: "boolean",
+              description: PARAM_DESCRIPTIONS.includeSummary,
+            },
+            tokens: {
+              type: "number",
+              description: PARAM_DESCRIPTIONS.contextTokens,
+            },
+            messageLimit: {
+              type: "number",
+              description: PARAM_DESCRIPTIONS.messageLimit,
+            },
+          },
+          required: [],
         },
       },
     },
@@ -144,6 +225,81 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
       return client.workspaces.peers.chat(workspaceId, peerId, {
         query: args.query as string,
       });
+    },
+
+    honcho_context: async (args) => {
+      const target = (args.peerId as string) ?? defaultPeerId;
+      const observer = (args.observerId as string) ?? defaultObserverPeerId ?? target;
+      const session = (args.sessionId as string) ?? defaultSessionId;
+      const includeSummary = parseBooleanArg(
+        args.includeSummary,
+        true,
+        "includeSummary"
+      );
+      const tokens = parseIntegerArg(
+        args.tokens,
+        DEFAULTS.contextTokens,
+        "tokens",
+        { min: 1 }
+      );
+      const messageLimit = parseIntegerArg(
+        args.messageLimit,
+        DEFAULTS.contextMessageLimit,
+        "messageLimit",
+        { min: 1, max: 50 }
+      );
+
+      if (!target) throw new Error("peerId is required");
+      if (!observer) throw new Error("observerId is required");
+
+      if (session) {
+        const hasPeerPair = observer !== target;
+        const ctx = await client.workspaces.sessions.context(workspaceId, session, {
+          peer_perspective: hasPeerPair ? observer : undefined,
+          peer_target: hasPeerPair ? target : undefined,
+          summary: includeSummary,
+          tokens,
+        });
+
+        const messages = (ctx.messages ?? [])
+          .slice(-messageLimit)
+          .map((m) => ({
+            content: m.content,
+            peer_id: m.peer_id,
+            role:
+              m.peer_id === observer
+                ? "observer"
+                : m.peer_id === target
+                  ? "target"
+                  : "other",
+          }));
+
+        return {
+          session_id: session,
+          observer_id: observer,
+          target_id: target,
+          representation: ctx.peer_representation ?? null,
+          peer_card: ctx.peer_card ?? null,
+          summary: includeSummary ? (ctx.summary?.content ?? null) : null,
+          messages,
+          message_count: messages.length,
+        };
+      }
+
+      const ctx = await client.workspaces.peers.context(workspaceId, observer, {
+        target: observer === target ? undefined : target,
+      });
+
+      return {
+        session_id: null,
+        observer_id: observer,
+        target_id: target,
+        representation: ctx.representation ?? null,
+        peer_card: ctx.peer_card ?? null,
+        summary: null,
+        messages: [],
+        message_count: 0,
+      };
     },
 
     honcho_search: async (args) => {

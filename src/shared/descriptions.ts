@@ -54,13 +54,16 @@ export const PARAM_DESCRIPTIONS = {
   query: "The natural language query or question to ask",
   peerId: "The peer (user) ID to query about",
   sessionId: "The session ID to scope the query to",
+  observerId: "The peer ID acting as the observer perspective",
   limit: "Maximum number of results to return",
   content: "The conclusion or observation text to save",
   observedId: "The peer ID this conclusion is about",
-  observerId: "The peer ID making this observation",
   targetPeerId: "Optional peer whose perspective to use",
   includeFrequent: "Include most frequently referenced conclusions",
   maxConclusions: "Maximum number of conclusions to include",
+  contextTokens: "Maximum token budget for context retrieval",
+  includeSummary: "Whether to include a session summary in context",
+  messageLimit: "Maximum number of recent messages to return",
 } as const;
 
 export const DEFAULTS = {
@@ -68,4 +71,5 @@ export const DEFAULTS = {
   conclusionTopK: 10,
   maxConclusions: 20,
   contextTokens: 4096,
+  contextMessageLimit: 8,
 } as const;

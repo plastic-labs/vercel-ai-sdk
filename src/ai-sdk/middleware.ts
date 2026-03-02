@@ -15,10 +15,14 @@ import {
  * 1. Injects Honcho peer/session context into system prompts (transformParams)
  * 2. Persists user + assistant messages to Honcho after generation (wrapGenerate/wrapStream)
  *
+ * @deprecated Use `honcho.session(id, peers).middleware()` instead for correct
+ * dual-peer attribution. This single-peer middleware uses the same peerId for
+ * both user and assistant messages.
+ *
  * @example
  * ```ts
  * import { wrapLanguageModel } from "ai";
- * import { createHonchoMiddleware } from "@honcho-ai/tools/ai-sdk";
+ * import { createHonchoMiddleware } from "@honcho/ai-sdk/ai-sdk";
  *
  * const model = wrapLanguageModel({
  *   model: anthropic("claude-sonnet-4-20250514"),
@@ -32,6 +36,7 @@ export function createHonchoMiddleware(
   middlewareOptions?: HonchoMiddlewareOptions
 ) {
   return {
+    specificationVersion: 'v3' as const,
     transformParams: async ({ params }: { params: any }) => {
       const callOptions = (params.providerOptions?.honcho ?? {}) as HonchoCallOptions;
       const config = resolveConfig(
@@ -82,13 +87,7 @@ export function createHonchoMiddleware(
       };
     },
 
-    wrapGenerate: async ({
-      doGenerate,
-      params,
-    }: {
-      doGenerate: () => Promise<any>;
-      params: any;
-    }) => {
+    wrapGenerate: async ({ doGenerate, params }: any) => {
       const result = await doGenerate();
 
       const callOptions = (params.providerOptions?.honcho ?? {}) as HonchoCallOptions;
@@ -116,21 +115,16 @@ export function createHonchoMiddleware(
           msgs.push({ role: "assistant", content: assistantContent });
 
         if (msgs.length > 0) {
-          // Fire and forget -- don't block the response
-          persistMessages(config, msgs).catch(() => {});
+          await persistMessages(config, msgs).catch((err) =>
+            console.error("[honcho] persistence error:", err)
+          );
         }
       }
 
       return result;
     },
 
-    wrapStream: async ({
-      doStream,
-      params,
-    }: {
-      doStream: () => Promise<any>;
-      params: any;
-    }) => {
+    wrapStream: async ({ doStream, params }: any) => {
       const result = await doStream();
 
       const callOptions = (params.providerOptions?.honcho ?? {}) as HonchoCallOptions;
@@ -159,9 +153,9 @@ export function createHonchoMiddleware(
         transform(chunk, controller) {
           if (
             chunk.type === "text-delta" &&
-            typeof chunk.textDelta === "string"
+            typeof chunk.delta === "string"
           ) {
-            assistantText += chunk.textDelta;
+            assistantText += chunk.delta;
           }
           controller.enqueue(chunk);
         },
@@ -172,7 +166,9 @@ export function createHonchoMiddleware(
             msgs.push({ role: "assistant", content: assistantText });
 
           if (msgs.length > 0) {
-            persistMessages(config, msgs).catch(() => {});
+            return persistMessages(config, msgs).catch((err) =>
+              console.error("[honcho] persistence error:", err)
+            );
           }
         },
       });
