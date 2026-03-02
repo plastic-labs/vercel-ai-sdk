@@ -215,7 +215,6 @@ import { createPeerIdentity, compareIdentityPerspectives } from "@honcho/ai-sdk/
 | `@honcho/ai-sdk/ai-sdk` | Session + middleware internals |
 | `@honcho/ai-sdk/multi-agent` | `createMultiAgentSession`, `multiAgentMiddleware` |
 | `@honcho/ai-sdk/openai` | OpenAI-format tool wrappers |
-| `@honcho/ai-sdk/mastra` | Mastra tool integration |
 | `@honcho/ai-sdk/dreaming` | Dreaming agent (experimental) |
 | `@honcho/ai-sdk/identity` | Identity card utilities (experimental) |
 

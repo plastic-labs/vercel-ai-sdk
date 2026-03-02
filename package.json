@@ -1,7 +1,7 @@
 {
   "name": "@honcho/ai-sdk",
   "version": "0.1.0",
-  "description": "Honcho memory for AI SDKs -- persistent identity, theory-of-mind, dialectic reasoning",
+  "description": "Honcho memory for the Vercel AI SDK -- persistent identity, theory-of-mind, dialectic reasoning",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -19,10 +19,6 @@
     "./openai": {
       "import": "./dist/openai/index.js",
       "types": "./dist/openai/index.d.ts"
-    },
-    "./mastra": {
-      "import": "./dist/mastra/index.js",
-      "types": "./dist/mastra/index.d.ts"
     },
     "./multi-agent": {
       "import": "./dist/multi-agent/index.js",
@@ -48,7 +44,7 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "tsx --env-file=.env src/test.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "bun run build"
   },
   "keywords": [
     "ai",
@@ -58,18 +54,17 @@
     "personalization",
     "tools",
     "vercel-ai",
-    "openai",
-    "mastra"
+    "openai"
   ],
   "author": "Plastic Labs <hello@plasticlabs.ai>",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/plastic-labs/ai-sdk-honcho.git"
+    "url": "git+https://github.com/plastic-labs/vercel-ai-sdk-package.git"
   },
-  "homepage": "https://github.com/plastic-labs/ai-sdk-honcho#readme",
+  "homepage": "https://github.com/plastic-labs/vercel-ai-sdk-package#readme",
   "bugs": {
-    "url": "https://github.com/plastic-labs/ai-sdk-honcho/issues"
+    "url": "https://github.com/plastic-labs/vercel-ai-sdk-package/issues"
   },
   "engines": {
     "node": ">=18"
@@ -83,8 +78,7 @@
   "peerDependencies": {
     "ai": "^6.0.0",
     "zod": "^3.23.0 || ^4.0.0",
-    "@ai-sdk/provider": "^3.0.0",
-    "@mastra/core": ">=0.10.0"
+    "@ai-sdk/provider": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "ai": {
@@ -92,16 +86,12 @@
     },
     "@ai-sdk/provider": {
       "optional": true
-    },
-    "@mastra/core": {
-      "optional": true
     }
   },
   "devDependencies": {
     "@ai-sdk/anthropic": "^3.0.46",
     "@ai-sdk/openai": "^3.0.36",
     "@ai-sdk/provider": "^3.0.0",
-    "@mastra/core": "^0.10.0",
     "@types/node": "^22.0.0",
     "ai": "^6.0.0",
     "tsup": "^8.5.0",
