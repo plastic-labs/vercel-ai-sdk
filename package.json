@@ -44,7 +44,9 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "tsx --env-file=.env src/test.ts",
-    "prepublishOnly": "bun run build"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck",
+    "publish:check": "npm run typecheck && npm pack --dry-run"
   },
   "keywords": [
     "ai",

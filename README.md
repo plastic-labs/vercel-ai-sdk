@@ -201,8 +201,8 @@ import { createPeerIdentity, compareIdentityPerspectives } from "@honcho/ai-sdk/
 ## Development
 
 ```bash
-bun run typecheck
-bun run build
+npm run typecheck
+npm run build
 ```
 
 ## License
