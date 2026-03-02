@@ -150,21 +150,40 @@ function mergeConfig(
 }
 
 /**
- * Detect whether this is a continuation step (tool-result follow-up)
- * by checking if the prompt contains tool-result messages.
+ * Detect whether this is a tool continuation step.
+ * A tool continuation is when the LAST non-system message is a tool result,
+ * meaning we're mid-turn after a tool call and shouldn't re-persist the user message.
  */
 function isToolContinuation(prompt: any[]): boolean {
-  return prompt.some((m: any) => m.role === "tool");
+  const lastNonSystem = [...prompt].reverse().find((m: any) => m.role !== "system");
+  return lastNonSystem?.role === "tool";
 }
 
 /**
- * Extract text content from a message object (handles both string and parts array).
+ * Extract text content from a message object.
+ * Handles LanguageModelV2 format (content as array of typed parts),
+ * string content (system messages), and UIMessage format (parts array).
  */
 function extractTextContent(message: any): string {
   if (!message) return "";
+  // String content (system messages, legacy format)
   if (typeof message.content === "string") return message.content;
+  // Array content (LanguageModelV2 user/assistant messages)
   if (Array.isArray(message.content)) {
-    return message.content
+    const text = message.content
+      .filter((p: any) => p.type === "text")
+      .map((p: any) => p.text)
+      .join("");
+    if (text) return text;
+    // Fallback: parts without type field (plain {text: string} objects)
+    const fallback = message.content
+      .map((p: any) => typeof p === "string" ? p : p.text ?? "")
+      .join("");
+    if (fallback) return fallback;
+  }
+  // UIMessage format (parts array instead of content)
+  if (Array.isArray(message.parts)) {
+    return message.parts
       .filter((p: any) => p.type === "text")
       .map((p: any) => p.text)
       .join("");
@@ -181,6 +200,7 @@ export function createSessionMiddleware(
   ensure: () => Promise<void>
 ) {
   return {
+    specificationVersion: 'v3' as const,
     transformParams: async ({ params }: { params: any }) => {
       await ensure();
 
@@ -254,7 +274,7 @@ export function createSessionMiddleware(
       }
 
       if (msgs.length > 0) {
-        persistSessionMessages(config, msgs).catch(config.onPersistenceError);
+        await persistSessionMessages(config, msgs).catch(config.onPersistenceError);
       }
 
       return result;
@@ -289,9 +309,9 @@ export function createSessionMiddleware(
         transform(chunk, controller) {
           if (
             chunk.type === "text-delta" &&
-            typeof chunk.textDelta === "string"
+            typeof chunk.delta === "string"
           ) {
-            assistantText += chunk.textDelta;
+            assistantText += chunk.delta;
           }
           controller.enqueue(chunk);
         },
@@ -302,7 +322,8 @@ export function createSessionMiddleware(
             msgs.push({ role: "assistant", content: assistantText });
 
           if (msgs.length > 0) {
-            persistSessionMessages(config, msgs).catch(config.onPersistenceError);
+            return persistSessionMessages(config, msgs)
+              .catch(config.onPersistenceError);
           }
         },
       });

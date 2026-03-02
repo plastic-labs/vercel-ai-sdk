@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>@honcho/ai-sdk: Community Provider Documentation</title>
+<style>
+  :root {
+    --bg:             #0b0e14;
+    --bg-surface:     #11151c;
+    --bg-elevated:    #181d27;
+    --bg-code:        #0d1018;
+    --fg:             #c9d1d9;
+    --fg-bright:      #e6edf3;
+    --fg-muted:       #6e7681;
+    --fg-subtle:      #484f58;
+    --accent:         #7eb8f6;
+    --accent-dim:     #3d6ea5;
+    --accent-glow:    rgba(126, 184, 246, 0.08);
+    --green:          #7ee6a8;
+    --green-dim:      #2ea04f;
+    --orange:         #e6a855;
+    --red:            #f47067;
+    --purple:         #bc8cff;
+    --cyan:           #56d4dd;
+    --border:         #21262d;
+    --border-subtle:  #161b22;
+    --radius:         6px;
+    --font-sans:      'New York', ui-serif, 'Iowan Old Style', 'Apple Garamond', Baskerville, 'Times New Roman', 'Noto Emoji', serif;
+    --font-mono:      'Departure Mono', 'Noto Emoji', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 2rem; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.7;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+
+  /* -- Hero ------------------------------------------- */
+  .hero {
+    text-align: center;
+    padding: 4rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+  .hero h1 {
+    font-family: var(--font-mono);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--fg-bright);
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero .subtitle {
+    font-family: var(--font-sans);
+    color: var(--fg-muted);
+    font-size: 0.92rem;
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  .hero .meta {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .hero .meta span {
+    font-size: 0.8rem;
+    color: var(--fg-subtle);
+    font-family: var(--font-mono);
+  }
+  .hero .meta span a {
+    color: var(--accent-dim);
+    text-decoration: none;
+  }
+  .hero .meta span a:hover { color: var(--accent); }
+
+  /* -- TOC -------------------------------------------- */
+  .toc {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem 2rem;
+    margin-bottom: 3rem;
+  }
+  .toc h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--fg-muted);
+    margin-bottom: 1rem;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+    columns: 2;
+    column-gap: 2rem;
+  }
+  .toc li {
+    counter-increment: toc;
+    break-inside: avoid;
+    margin-bottom: 0.35rem;
+  }
+  .toc li::before {
+    content: counter(toc, decimal-leading-zero) " ";
+    color: var(--fg-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    margin-right: 0.25rem;
+  }
+  .toc a {
+    font-family: var(--font-mono);
+    color: var(--fg);
+    text-decoration: none;
+    font-size: 0.82rem;
+    transition: color 0.15s;
+  }
+  .toc a:hover { color: var(--accent); }
+
+  /* -- Sections --------------------------------------- */
+  section { margin-bottom: 4rem; }
+  section + section { padding-top: 1rem; }
+
+  h2 {
+    font-family: var(--font-mono);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--fg-bright);
+    letter-spacing: -0.01em;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg-bright);
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+  }
+  h4 {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  p { margin-bottom: 1rem; font-size: 0.95rem; line-height: 1.75; }
+  strong { color: var(--fg-bright); font-weight: 600; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; font-size: 0.93rem; line-height: 1.7; }
+  li { margin-bottom: 0.35rem; }
+  li::marker { color: var(--fg-subtle); }
+
+  /* -- Tables ----------------------------------------- */
+  .table-wrap { overflow-x: auto; margin-bottom: 1.5rem; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  th {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-muted);
+    background: var(--bg-surface);
+    border-bottom-color: var(--border);
+    white-space: nowrap;
+  }
+  td { font-family: var(--font-sans); font-size: 0.88rem; color: var(--fg); }
+  tr:hover td { background: var(--accent-glow); }
+  td code {
+    background: var(--bg-elevated);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    color: var(--cyan);
+  }
+
+  /* -- Code Blocks ------------------------------------ */
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--fg);
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+  code { font-family: var(--font-mono); font-size: 0.85em; }
+  p code, li code, td code {
+    background: var(--bg-elevated);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    color: var(--cyan);
+    font-size: 0.85em;
+  }
+
+  .kw { color: var(--purple); }
+  .str { color: var(--green); }
+  .cm { color: var(--fg-subtle); font-style: italic; }
+  .num { color: var(--orange); }
+  .key { color: var(--accent); }
+  .fn { color: var(--cyan); }
+  .type { color: var(--orange); }
+
+  /* -- Callouts --------------------------------------- */
+  .callout {
+    font-family: var(--font-sans);
+    background: var(--bg-surface);
+    border-left: 3px solid var(--accent-dim);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.88rem;
+    color: var(--fg-muted);
+    line-height: 1.6;
+  }
+  .callout strong { font-family: var(--font-mono); color: var(--fg-bright); }
+  .callout.note { border-left-color: var(--accent-dim); }
+  .callout.warn { border-left-color: var(--orange); }
+
+  /* -- Lifecycle steps -------------------------------- */
+  .lifecycle {
+    counter-reset: step;
+    list-style: none;
+    padding-left: 0;
+  }
+  .lifecycle li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 3rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .lifecycle li:last-child { border-bottom: none; padding-bottom: 0; }
+  .lifecycle li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0.1rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: 3px;
+    background: var(--bg-surface);
+  }
+  .lifecycle li strong {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+  }
+
+  /* -- Mermaid ---------------------------------------- */
+  .mermaid {
+    margin: 1.5rem 0 2rem;
+    text-align: center;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* -- Divider ---------------------------------------- */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 3rem 0;
+  }
+
+  /* -- Responsive ------------------------------------- */
+  @media (max-width: 640px) {
+    .container { padding: 2rem 1rem 4rem; }
+    .hero h1 { font-size: 1.6rem; }
+    .toc ol { columns: 1; }
+    table { font-size: 0.8rem; }
+    th, td { padding: 0.4rem 0.6rem; }
+  }
+
+  /* -- Scroll indicator ------------------------------- */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+    z-index: 999;
+    transition: width 0.1s linear;
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Emoji&display=swap" rel="stylesheet">
+<style>
+  @font-face {
+    font-family: 'Departure Mono';
+    src: url('https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@latest/fonts/DepartureMono-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<div class="container">
+
+<!-- =============== HERO =============== -->
+<header class="hero">
+  <h1>@honcho/<span>ai-sdk</span></h1>
+  <p class="subtitle">Memory that reasons. Persistent identity, dialectic reasoning, and evolving user context for any AI SDK model.</p>
+  <div class="meta">
+    <span><a href="https://github.com/plastic-labs/ai-sdk-honcho">plastic-labs/ai-sdk-honcho</a></span>
+    <span>TypeScript</span>
+    <span>AI SDK v6 / LM Spec V3</span>
+    <span>2026-02-27</span>
+  </div>
+</header>
+
+<!-- =============== TOC =============== -->
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#setup">Setup</a></li>
+    <li><a href="#sessions">Sessions &amp; Peers</a></li>
+    <li><a href="#middleware">Middleware</a></li>
+    <li><a href="#tools">Tools</a></li>
+    <li><a href="#examples">Examples</a></li>
+    <li><a href="#lifecycle">How It Works</a></li>
+    <li><a href="#config">Configuration</a></li>
+    <li><a href="#modules">Additional Modules</a></li>
+    <li><a href="#resources">Resources</a></li>
+  </ol>
+</nav>
+
+<!-- =============== OVERVIEW =============== -->
+<section id="overview">
+  <h2>Overview</h2>
+  <p><code>@honcho/ai-sdk</code> integrates <a href="https://honcho.dev">Honcho</a> with the Vercel AI SDK. Honcho is memory infrastructure that reasons about users &mdash; not just storing and retrieving conversation history, but deriving conclusions, building evolving representations, and answering natural language questions about users through dialectic inference.</p>
+
+  <p>Honcho operates as <strong>middleware and tools</strong> that compose with any existing model provider. Your model stays yours &mdash; Anthropic, OpenAI, Google, or any other AI SDK provider. Honcho wraps it with context injection before generation, message persistence after generation, and five tools the model can invoke mid-conversation to query or update its understanding of the user.</p>
+
+  <div class="callout note">
+    <strong>Not a model provider &mdash; middleware.</strong> Honcho augments any AI SDK model with persistent memory without replacing your provider. Use it alongside <code>@ai-sdk/anthropic</code>, <code>@ai-sdk/openai</code>, or any other provider.
+  </div>
+</section>
+
+<!-- =============== SETUP =============== -->
+<section id="setup">
+  <h2>Setup</h2>
+
+  <pre><code><span class="cm"># install</span>
+bun add @honcho/ai-sdk</code></pre>
+
+  <p>Get your API key and workspace ID from <a href="https://honcho.dev">honcho.dev</a>:</p>
+
+  <pre><code><span class="kw">export</span> <span class="key">HONCHO_API_KEY</span>=<span class="str">your-api-key</span>
+<span class="kw">export</span> <span class="key">HONCHO_WORKSPACE_ID</span>=<span class="str">your-workspace-id</span></code></pre>
+
+  <h3>Provider Instance</h3>
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+
+<span class="kw">const</span> honcho = <span class="fn">createHoncho</span>({
+  <span class="key">workspaceId</span>: process.env.<span class="key">HONCHO_WORKSPACE_ID</span>!,
+  <span class="cm">// apiKey defaults to process.env.HONCHO_API_KEY</span>
+});</code></pre>
+</section>
+
+<!-- =============== SESSIONS =============== -->
+<section id="sessions">
+  <h2>Sessions &amp; Peers</h2>
+
+  <p>A session handle represents a conversation thread between a user and an assistant. It manages <strong>dual-peer identity</strong> &mdash; Honcho tracks who said what, and builds a model of the user from the assistant's perspective.</p>
+
+  <pre><code><span class="kw">const</span> session = honcho.<span class="fn">session</span>(<span class="str">'session-123'</span>, {
+  <span class="key">user</span>: <span class="str">'user-abc'</span>,
+  <span class="key">assistant</span>: <span class="str">'assistant-xyz'</span>,
+});</code></pre>
+
+  <p>Session handles are synchronous and lightweight. No API calls are made until you use the session's middleware or tools, which lazily initialize backend resources via <code>ensure()</code>.</p>
+
+  <h3>Peers</h3>
+  <p>Honcho's core primitive is the <strong>peer</strong> &mdash; any entity that persists and changes over time. In a typical setup:</p>
+  <ul>
+    <li>The <strong>user peer</strong> has <code>observe_me: true</code> &mdash; its messages are observed and reasoned about</li>
+    <li>The <strong>assistant peer</strong> has <code>observe_others: true</code> &mdash; it builds understanding of the user</li>
+  </ul>
+  <p>This dual-peer model means Honcho automatically builds a representation of the user from the assistant's perspective, including derived conclusions, behavioral patterns, and biographical facts.</p>
+</section>
+
+<!-- =============== MIDDLEWARE =============== -->
+<section id="middleware">
+  <h2>Middleware</h2>
+
+  <p>The session provides middleware compatible with <code>wrapLanguageModel</code>. It handles two things automatically:</p>
+  <ol>
+    <li><strong>Before generation</strong> &mdash; fetches context from Honcho (user representation, peer card, session summary, recent messages) and injects it into the system prompt</li>
+    <li><strong>After generation</strong> &mdash; persists user and assistant messages back to Honcho with correct peer attribution</li>
+  </ol>
+
+  <pre><code><span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">generateText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
+<span class="kw">import</span> { <span class="fn">anthropic</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/anthropic'</span>;
+
+<span class="kw">const</span> model = <span class="fn">wrapLanguageModel</span>({
+  <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-20250514'</span>),
+  <span class="key">middleware</span>: session.<span class="fn">middleware</span>(),
+});</code></pre>
+
+  <p>The middleware conforms to <code>LanguageModelV3Middleware</code> with <code>specificationVersion: 'v3'</code>.</p>
+
+  <h3>Context Injection</h3>
+  <p>Before each generation, the middleware fetches from Honcho and injects up to four XML sections into the system prompt:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Section</th><th>Source</th><th>Contains</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt;honcho_user_context&gt;</code></td><td>Peer representation</td><td>Synthesized user profile from all observations</td></tr>
+        <tr><td><code>&lt;honcho_user_card&gt;</code></td><td>Peer card</td><td>Structured biographical facts and traits</td></tr>
+        <tr><td><code>&lt;honcho_session_summary&gt;</code></td><td>Session summary</td><td>Compressed history of the current session</td></tr>
+        <tr><td><code>&lt;honcho_recent_messages&gt;</code></td><td>Message history</td><td>Recent turns with <code>[user]</code>/<code>[assistant]</code> labels</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =============== TOOLS =============== -->
+<section id="tools">
+  <h2>Tools</h2>
+
+  <p>Honcho exposes five tools that the model can invoke during generation to query and update its understanding of the user:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>honcho_chat</code></td><td>Dialectic reasoning. Ask natural language questions about the user and get synthesized answers derived from their full interaction history.</td></tr>
+        <tr><td><code>honcho_search</code></td><td>Semantic search across stored conversation messages.</td></tr>
+        <tr><td><code>honcho_search_conclusions</code></td><td>Query derived conclusions: personality traits, preferences, behavioral patterns, biographical facts.</td></tr>
+        <tr><td><code>honcho_get_representation</code></td><td>Get a comprehensive synthesized profile of the user.</td></tr>
+        <tr><td><code>honcho_save_conclusion</code></td><td>Persist an observation or conclusion about the user for future sessions.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <pre><code><span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">generateText</span>({
+  <span class="key">model</span>,
+  <span class="key">tools</span>: session.<span class="fn">tools</span>(),
+  <span class="key">prompt</span>: <span class="str">'What patterns have you noticed about me?'</span>,
+});</code></pre>
+
+  <p>Tools are pre-bound to the session's peers, so the model doesn't need to specify peer IDs.</p>
+</section>
+
+<!-- =============== EXAMPLES =============== -->
+<section id="examples">
+  <h2>Examples</h2>
+
+  <h3>generateText</h3>
+  <p>A complete example with memory-augmented generation:</p>
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+<span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">generateText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
+<span class="kw">import</span> { <span class="fn">anthropic</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/anthropic'</span>;
+
+<span class="kw">const</span> honcho = <span class="fn">createHoncho</span>({
+  <span class="key">workspaceId</span>: process.env.<span class="key">HONCHO_WORKSPACE_ID</span>!,
+});
+
+<span class="kw">const</span> session = honcho.<span class="fn">session</span>(<span class="str">'session-123'</span>, {
+  <span class="key">user</span>: <span class="str">'user-abc'</span>,
+  <span class="key">assistant</span>: <span class="str">'assistant-xyz'</span>,
+});
+
+<span class="kw">const</span> model = <span class="fn">wrapLanguageModel</span>({
+  <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-20250514'</span>),
+  <span class="key">middleware</span>: session.<span class="fn">middleware</span>(),
+});
+
+<span class="kw">const</span> { text } = <span class="kw">await</span> <span class="fn">generateText</span>({
+  <span class="key">model</span>,
+  <span class="key">tools</span>: session.<span class="fn">tools</span>(),
+  <span class="key">prompt</span>: <span class="str">'Based on our conversations, what do I care about most?'</span>,
+});</code></pre>
+
+  <p>On the first turn, Honcho returns empty context. On subsequent turns, the model receives the user's representation, derived conclusions, and recent message history &mdash; automatically, with no additional code.</p>
+
+  <h3>streamText</h3>
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+<span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">streamText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
+<span class="kw">import</span> { <span class="fn">openai</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/openai'</span>;
+
+<span class="kw">const</span> honcho = <span class="fn">createHoncho</span>({
+  <span class="key">workspaceId</span>: process.env.<span class="key">HONCHO_WORKSPACE_ID</span>!,
+});
+
+<span class="kw">const</span> session = honcho.<span class="fn">session</span>(<span class="str">'session-456'</span>, {
+  <span class="key">user</span>: <span class="str">'user-abc'</span>,
+  <span class="key">assistant</span>: <span class="str">'assistant-xyz'</span>,
+});
+
+<span class="kw">const</span> model = <span class="fn">wrapLanguageModel</span>({
+  <span class="key">model</span>: <span class="fn">openai</span>(<span class="str">'gpt-4o'</span>),
+  <span class="key">middleware</span>: session.<span class="fn">middleware</span>(),
+});
+
+<span class="kw">const</span> result = <span class="fn">streamText</span>({
+  <span class="key">model</span>,
+  <span class="key">tools</span>: session.<span class="fn">tools</span>(),
+  <span class="key">prompt</span>: <span class="str">'What should we work on next?'</span>,
+});
+
+<span class="kw">for await</span> (<span class="kw">const</span> chunk <span class="kw">of</span> result.textStream) {
+  process.stdout.<span class="fn">write</span>(chunk);
+}</code></pre>
+
+  <p>Messages are persisted after the stream completes. The middleware returns the persistence promise from <code>flush()</code>, so the stream stays open until Honcho confirms the write.</p>
+
+  <h3>Next.js Route Handler</h3>
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+<span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">streamText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
+<span class="kw">import</span> { <span class="fn">anthropic</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/anthropic'</span>;
+
+<span class="kw">const</span> honcho = <span class="fn">createHoncho</span>({
+  <span class="key">workspaceId</span>: process.env.<span class="key">HONCHO_WORKSPACE_ID</span>!,
+});
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req: <span class="type">Request</span>) {
+  <span class="kw">const</span> { messages, sessionId, userId } = <span class="kw">await</span> req.<span class="fn">json</span>();
+
+  <span class="kw">const</span> session = honcho.<span class="fn">session</span>(sessionId, {
+    <span class="key">user</span>: userId,
+    <span class="key">assistant</span>: <span class="str">'my-app'</span>,
+  });
+
+  <span class="kw">const</span> model = <span class="fn">wrapLanguageModel</span>({
+    <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-20250514'</span>),
+    <span class="key">middleware</span>: session.<span class="fn">middleware</span>(),
+  });
+
+  <span class="kw">const</span> result = <span class="fn">streamText</span>({
+    <span class="key">model</span>,
+    <span class="key">tools</span>: session.<span class="fn">tools</span>(),
+    messages,
+  });
+
+  <span class="kw">return</span> result.<span class="fn">toDataStreamResponse</span>();
+}</code></pre>
+</section>
+
+<!-- =============== LIFECYCLE =============== -->
+<section id="lifecycle">
+  <h2>How It Works</h2>
+
+  <p>Each turn follows this lifecycle:</p>
+
+  <div class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#1f3150', 'primaryTextColor': '#c9d1d9', 'primaryBorderColor': '#3d6ea5', 'lineColor': '#3d6ea5', 'secondaryColor': '#162030', 'tertiaryColor': '#11151c', 'edgeLabelBackground': '#0b0e14' }}}%%
+flowchart TD
+    A["transformParams<br/>fetch context"] --> B["inject into<br/>system prompt"]
+    B --> C["model generates<br/>+ optional tool calls"]
+    C --> D["flush / wrapGenerate<br/>persist messages"]
+    D --> E["Honcho reasons<br/>asynchronously"]
+    E --> F["next turn starts<br/>with richer context"]
+
+    style A fill:#162030,stroke:#3d6ea5,color:#c9d1d9
+    style B fill:#1f3150,stroke:#3d6ea5,color:#c9d1d9
+    style C fill:#1f3150,stroke:#3d6ea5,color:#c9d1d9
+    style D fill:#1f3150,stroke:#3d6ea5,color:#c9d1d9
+    style E fill:#162030,stroke:#7ee6a8,color:#c9d1d9
+    style F fill:#162030,stroke:#3d6ea5,color:#c9d1d9
+  </div>
+
+  <ol class="lifecycle">
+    <li><strong>transformParams</strong> &mdash; Middleware calls Honcho's session context API using the assistant's perspective on the user (<code>peer_perspective = assistant</code>, <code>peer_target = user</code>). Honcho returns the user's representation, peer card, session summary, and recent messages. These are formatted as XML sections and injected into the system prompt.</li>
+    <li><strong>Generation</strong> &mdash; The model generates with full context. If tools are available, it can invoke <code>honcho_chat</code> to ask reasoning questions, <code>honcho_search</code> to find specific past conversations, or <code>honcho_save_conclusion</code> to persist an important observation.</li>
+    <li><strong>flush / wrapGenerate</strong> &mdash; After generation completes, middleware extracts the user's message and the assistant's response, then persists both to Honcho with correct peer attribution. Tool continuation steps (multi-step tool use) skip re-persisting the user message.</li>
+    <li><strong>Between sessions</strong> &mdash; Honcho's reasoning engine processes stored messages asynchronously, deriving conclusions, updating the user's representation, and consolidating memory. The next session starts with richer context.</li>
+  </ol>
+</section>
+
+<!-- =============== CONFIG =============== -->
+<section id="config">
+  <h2>Configuration</h2>
+
+  <h3>Session Options</h3>
+  <pre><code><span class="kw">const</span> session = honcho.<span class="fn">session</span>(<span class="str">'session-123'</span>, {
+  <span class="key">user</span>: <span class="str">'user-abc'</span>,
+  <span class="key">assistant</span>: <span class="str">'assistant-xyz'</span>,
+}, {
+  <span class="key">context</span>: {
+    <span class="key">tokens</span>: <span class="num">4096</span>,          <span class="cm">// Max tokens for context injection</span>
+    <span class="key">includeSummary</span>: <span class="kw">true</span>,  <span class="cm">// Include session summary</span>
+    <span class="key">format</span>: customFormatter, <span class="cm">// Custom context formatter</span>
+  },
+  <span class="key">persistence</span>: {
+    <span class="key">enabled</span>: <span class="kw">true</span>,         <span class="cm">// Enable message persistence</span>
+    <span class="key">onError</span>: (err) => {    <span class="cm">// Error handler</span>
+      console.<span class="fn">error</span>(<span class="str">'[honcho]'</span>, err);
+    },
+  },
+});</code></pre>
+
+  <h3>Provider Options</h3>
+  <pre><code><span class="kw">const</span> honcho = <span class="fn">createHoncho</span>({
+  <span class="key">workspaceId</span>: <span class="str">'ws-123'</span>,
+  <span class="key">apiKey</span>: <span class="str">'hk_...'</span>,           <span class="cm">// Defaults to HONCHO_API_KEY env var</span>
+  <span class="key">environment</span>: <span class="str">'production'</span>,   <span class="cm">// 'production' | 'local'</span>
+  <span class="key">baseURL</span>: <span class="str">'https://...'</span>,     <span class="cm">// Custom API endpoint</span>
+});</code></pre>
+</section>
+
+<!-- =============== MODULES =============== -->
+<section id="modules">
+  <h2>Additional Modules</h2>
+
+  <p>The <code>@honcho/ai-sdk</code> package includes modules for advanced use cases:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Module</th><th>Import</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Multi-Agent</td><td><code>@honcho/ai-sdk/multi-agent</code></td><td>Peer-to-peer observation between multiple agents</td></tr>
+        <tr><td>Dreaming</td><td><code>@honcho/ai-sdk/dreaming</code></td><td>Autonomous memory consolidation and self-reflection</td></tr>
+        <tr><td>Identity</td><td><code>@honcho/ai-sdk/identity</code></td><td>Live identity documents backed by Honcho peer cards</td></tr>
+        <tr><td>OpenAI</td><td><code>@honcho/ai-sdk/openai</code></td><td>Direct OpenAI SDK integration (without AI SDK)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =============== RESOURCES =============== -->
+<section id="resources">
+  <h2>Resources</h2>
+  <ul>
+    <li><a href="https://docs.honcho.dev">Honcho Documentation</a></li>
+    <li><a href="https://github.com/plastic-labs/ai-sdk-honcho">GitHub Repository</a></li>
+    <li><a href="https://honcho.dev">Honcho Platform</a></li>
+    <li><a href="https://plasticlabs.ai">Plastic Labs</a></li>
+  </ul>
+</section>
+
+</div><!-- .container -->
+
+<!-- scripts -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    fontFamily: 'Departure Mono, Noto Emoji, monospace',
+  });
+</script>
+
+<script>
+  window.addEventListener('scroll', () => {
+    const bar = document.getElementById('progress');
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = max > 0 ? (window.scrollY / max) * 100 : 0;
+    bar.style.width = pct + '%';
+  });
+</script>
+
+</body>
+</html>

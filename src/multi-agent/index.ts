@@ -1,5 +1,5 @@
 import type Honcho from "@honcho-ai/core";
-import { createClient, defaultFormatContext, fetchContext } from "../shared/context.js";
+import { createClient, defaultFormatContext } from "../shared/context.js";
 import type { HonchoProviderOptions, HonchoContextData } from "../types.js";
 
 /**
@@ -12,6 +12,39 @@ export interface AgentPeerConfig {
   observeMe?: boolean;
   /** Whether this peer should form theory-of-mind representations of other peers. */
   observeOthers?: boolean;
+}
+
+/**
+ * Controls how much cross-peer conversational evidence is injected.
+ */
+export interface MultiAgentContextOptions {
+  /**
+   * Include recent raw messages in each peer-view block.
+   * Default: true.
+   */
+  includeMessages?: boolean;
+  /**
+   * Maximum number of recent messages per target peer to inject.
+   * Default: 8.
+   */
+  maxMessagesPerPeer?: number;
+  /**
+   * Token budget used when retrieving per-peer session context.
+   * Default: 2048.
+   */
+  contextTokensPerPeer?: number;
+  /**
+   * Include session summary in per-peer context retrieval.
+   * Default: true.
+   */
+  includeSummary?: boolean;
+}
+
+interface ResolvedMultiAgentContextOptions {
+  includeMessages: boolean;
+  maxMessagesPerPeer: number;
+  contextTokensPerPeer: number;
+  includeSummary: boolean;
 }
 
 /**
@@ -30,6 +63,8 @@ export interface MultiAgentSessionOptions {
     reasoning?: { enabled?: boolean; custom_instructions?: string };
     summary?: { enabled?: boolean };
   };
+  /** Context injection controls for cross-peer formatting. */
+  context?: MultiAgentContextOptions;
 }
 
 /**
@@ -81,7 +116,7 @@ export interface MultiAgentSession {
 
   /**
    * Get combined context for a peer, including their views of all other peers.
-   * Returns a map of targetPeerId -> representation.
+   * Returns a map of targetPeerId -> context (representation/card/summary/messages).
    */
   getCrossPeerContext(
     peerId: string
@@ -126,6 +161,25 @@ export interface MultiAgentSession {
   ): Promise<void>;
 }
 
+function resolveMultiAgentContextOptions(
+  options?: MultiAgentContextOptions
+): ResolvedMultiAgentContextOptions {
+  return {
+    includeMessages: options?.includeMessages ?? true,
+    maxMessagesPerPeer: Math.max(0, Math.floor(options?.maxMessagesPerPeer ?? 8)),
+    contextTokensPerPeer: Math.max(256, Math.floor(options?.contextTokensPerPeer ?? 2048)),
+    includeSummary: options?.includeSummary ?? true,
+  };
+}
+
+function formatRecentMessages(
+  messages: HonchoContextData["messages"]
+): string {
+  if (!messages || messages.length === 0) return "";
+  const lines = messages.map((m) => `[${m.peer_id}]: ${m.content}`);
+  return `<honcho_recent_messages>\n${lines.join("\n")}\n</honcho_recent_messages>`;
+}
+
 /**
  * Create a multi-agent session with cross-peer observation.
  *
@@ -138,6 +192,7 @@ export async function createMultiAgentSession(
   const { provider, sessionId, peers, sessionConfig } = options;
   const client = createClient(provider);
   const workspaceId = provider.workspaceId;
+  const contextOptions = resolveMultiAgentContextOptions(options.context);
 
   // Ensure workspace exists
   await client.workspaces.getOrCreate({ id: workspaceId });
@@ -191,14 +246,44 @@ export async function createMultiAgentSession(
 
       const results = await Promise.all(
         otherPeers.map(async (targetId) => {
-          const perspective = await session.getPeerPerspective(peerId, targetId);
+          const ctx = await client.workspaces.sessions
+            .context(workspaceId, sessionId, {
+              peer_perspective: peerId,
+              peer_target: targetId,
+              summary: contextOptions.includeSummary,
+              tokens: contextOptions.contextTokensPerPeer,
+            })
+            .catch(() => null);
+
+          if (!ctx) {
+            const perspective = await session.getPeerPerspective(peerId, targetId);
+            return {
+              targetId,
+              data: {
+                representation: perspective.representation || null,
+                peerCard: perspective.card,
+                summary: null,
+                messages: undefined,
+              } as HonchoContextData,
+            };
+          }
+
+          const messages = contextOptions.includeMessages
+            ? (ctx.messages ?? [])
+                .slice(-contextOptions.maxMessagesPerPeer)
+                .map((m) => ({
+                  content: m.content,
+                  peer_id: m.peer_id,
+                }))
+            : undefined;
+
           return {
             targetId,
             data: {
-              representation: perspective.representation || null,
-              peerCard: perspective.card,
-              summary: null,
-              messages: undefined,
+              representation: ctx.peer_representation ?? null,
+              peerCard: ctx.peer_card ?? null,
+              summary: contextOptions.includeSummary ? (ctx.summary?.content ?? null) : null,
+              messages,
             } as HonchoContextData,
           };
         })
@@ -219,7 +304,12 @@ export async function createMultiAgentSession(
       // Default formatter: structured XML blocks per peer
       const sections: string[] = [];
       for (const [targetId, data] of contexts) {
-        const inner = defaultFormatContext(data);
+        const baseContext = defaultFormatContext(data);
+        const recentMessages = contextOptions.includeMessages
+          ? formatRecentMessages(data.messages)
+          : "";
+        const inner = [baseContext, recentMessages].filter(Boolean).join("\n\n");
+
         if (inner) {
           sections.push(
             `<honcho_peer_view target="${targetId}">\n${inner}\n</honcho_peer_view>`
@@ -288,6 +378,7 @@ export function multiAgentMiddleware(
   peerId: string
 ) {
   return {
+    specificationVersion: 'v3' as const,
     transformParams: async ({ params }: { params: any }) => {
       const contextText = await session.getFormattedContext(peerId);
       if (!contextText) return params;
@@ -334,7 +425,9 @@ export function multiAgentMiddleware(
         typeof result.text === "string" ? result.text : "";
 
       if (assistantText) {
-        session.sendMessage(peerId, assistantText).catch(() => {});
+        await session.sendMessage(peerId, assistantText).catch((err) =>
+          console.error("[honcho:multi-agent] persistence error:", err)
+        );
       }
 
       return result;
@@ -352,14 +445,16 @@ export function multiAgentMiddleware(
 
       const transform = new TransformStream({
         transform(chunk, controller) {
-          if (chunk.type === "text-delta" && typeof chunk.textDelta === "string") {
-            collected += chunk.textDelta;
+          if (chunk.type === "text-delta" && typeof chunk.delta === "string") {
+            collected += chunk.delta;
           }
           controller.enqueue(chunk);
         },
         flush() {
           if (collected) {
-            session.sendMessage(peerId, collected).catch(() => {});
+            return session.sendMessage(peerId, collected).catch((err) =>
+              console.error("[honcho:multi-agent] persistence error:", err)
+            );
           }
         },
       });
