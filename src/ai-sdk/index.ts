@@ -19,6 +19,7 @@ export { createSession } from "./session.js";
 export {
   honchoTools,
   honchoChatTool,
+  honchoContextTool,
   honchoSearchTool,
   honchoSearchConclusionsTool,
   honchoGetRepresentationTool,

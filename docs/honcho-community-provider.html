@@ -350,7 +350,7 @@
   <h1>@honcho/<span>ai-sdk</span></h1>
   <p class="subtitle">Memory that reasons. Persistent identity, dialectic reasoning, and evolving user context for any AI SDK model.</p>
   <div class="meta">
-    <span><a href="https://github.com/plastic-labs/ai-sdk-honcho">plastic-labs/ai-sdk-honcho</a></span>
+    <span><a href="https://github.com/plastic-labs/vercel-ai-sdk-package">plastic-labs/vercel-ai-sdk-package</a></span>
     <span>TypeScript</span>
     <span>AI SDK v6 / LM Spec V3</span>
     <span>2026-02-27</span>
@@ -377,12 +377,12 @@
 <!-- =============== OVERVIEW =============== -->
 <section id="overview">
   <h2>Overview</h2>
-  <p><code>@honcho/ai-sdk</code> integrates <a href="https://honcho.dev">Honcho</a> with the Vercel AI SDK. Honcho is memory infrastructure that reasons about users &mdash; not just storing and retrieving conversation history, but deriving conclusions, building evolving representations, and answering natural language questions about users through dialectic inference.</p>
+  <p><code>@honcho/ai-sdk</code> wraps any AI SDK model with persistent, reasoning-backed user memory. <a href="https://honcho.dev">Honcho</a> isn't a conversation log &mdash; it derives conclusions about users, builds evolving representations of them over time, and can answer natural language questions about them from their full interaction history.</p>
 
-  <p>Honcho operates as <strong>middleware and tools</strong> that compose with any existing model provider. Your model stays yours &mdash; Anthropic, OpenAI, Google, or any other AI SDK provider. Honcho wraps it with context injection before generation, message persistence after generation, and five tools the model can invoke mid-conversation to query or update its understanding of the user.</p>
+  <p>The integration is middleware and tools that compose with whatever provider you're already using. Your model stays yours &mdash; Anthropic, OpenAI, Google, anything with an AI SDK provider. Honcho injects relevant context into the system prompt before generation and persists messages after. The model also gets six tools it can call mid-conversation to query or update what it understands about the user.</p>
 
   <div class="callout note">
-    <strong>Not a model provider &mdash; middleware.</strong> Honcho augments any AI SDK model with persistent memory without replacing your provider. Use it alongside <code>@ai-sdk/anthropic</code>, <code>@ai-sdk/openai</code>, or any other provider.
+    <strong>Not a model provider &mdash; middleware.</strong> Honcho is not a model provider. Use it alongside <code>@ai-sdk/anthropic</code>, <code>@ai-sdk/openai</code>, or any other AI SDK provider.
   </div>
 </section>
 
@@ -393,7 +393,7 @@
   <pre><code><span class="cm"># install</span>
 bun add @honcho/ai-sdk</code></pre>
 
-  <p>Get your API key and workspace ID from <a href="https://honcho.dev">honcho.dev</a>:</p>
+  <p>Get your API key and workspace ID from <a href="https://app.honcho.dev">app.honcho.dev</a>:</p>
 
   <pre><code><span class="kw">export</span> <span class="key">HONCHO_API_KEY</span>=<span class="str">your-api-key</span>
 <span class="kw">export</span> <span class="key">HONCHO_WORKSPACE_ID</span>=<span class="str">your-workspace-id</span></code></pre>
@@ -411,39 +411,44 @@ bun add @honcho/ai-sdk</code></pre>
 <section id="sessions">
   <h2>Sessions &amp; Peers</h2>
 
-  <p>A session handle represents a conversation thread between a user and an assistant. It manages <strong>dual-peer identity</strong> &mdash; Honcho tracks who said what, and builds a model of the user from the assistant's perspective.</p>
+  <p>A session handle represents a single conversation thread. It manages the user and assistant identities that Honcho needs to track the conversation and make conclusions about the user and assistant. Any number of peers in a session can be observed by Honcho and reasoned about.</p>
 
   <pre><code><span class="kw">const</span> session = honcho.<span class="fn">session</span>(<span class="str">'session-123'</span>, {
   <span class="key">user</span>: <span class="str">'user-abc'</span>,
   <span class="key">assistant</span>: <span class="str">'assistant-xyz'</span>,
 });</code></pre>
 
-  <p>Session handles are synchronous and lightweight. No API calls are made until you use the session's middleware or tools, which lazily initialize backend resources via <code>ensure()</code>.</p>
+  <p>Session handles are synchronous and lightweight &mdash; no API calls until you actually use the middleware or tools, which lazily initialize the backend via <code>ensure()</code>.</p>
 
   <h3>Peers</h3>
   <p>Honcho's core primitive is the <strong>peer</strong> &mdash; any entity that persists and changes over time. In a typical setup:</p>
   <ul>
     <li>The <strong>user peer</strong> has <code>observe_me: true</code> &mdash; its messages are observed and reasoned about</li>
-    <li>The <strong>assistant peer</strong> has <code>observe_others: true</code> &mdash; it builds understanding of the user</li>
+    <li>The <strong>assistant peer</strong> has <code>observe_others: true</code> &mdash; it builds a running understanding of the user</li>
   </ul>
-  <p>This dual-peer model means Honcho automatically builds a representation of the user from the assistant's perspective, including derived conclusions, behavioral patterns, and biographical facts.</p>
+  <p>This dual-peer model is how Honcho constructs a representation of the user from the assistant's point of view: derived conclusions, behavioral patterns, biographical facts, and more.</p>
+  <p>Advanced use: The <strong>assistant peer</strong> can also be set to <code>observe_me: true</code> so Honcho makes conclusions about the user/assistant relationship, enhancing the assistant's behavior once context Honcho provides is injected into the system prompt or conversation turns.</p>
 </section>
 
 <!-- =============== MIDDLEWARE =============== -->
 <section id="middleware">
   <h2>Middleware</h2>
 
-  <p>The session provides middleware compatible with <code>wrapLanguageModel</code>. It handles two things automatically:</p>
+  <p>The session provides middleware compatible with <code>wrapLanguageModel</code>. Two things happen automatically:</p>
   <ol>
-    <li><strong>Before generation</strong> &mdash; fetches context from Honcho (user representation, peer card, session summary, recent messages) and injects it into the system prompt</li>
-    <li><strong>After generation</strong> &mdash; persists user and assistant messages back to Honcho with correct peer attribution</li>
+    <li><strong>Before generation</strong> &mdash; Honcho fetches context for the user (their representation, peer card, session summary, recent messages) and injects it into the system prompt as XML</li>
+    <li><strong>After generation</strong> &mdash; the user and assistant messages are persisted back to Honcho with correct peer attribution</li>
   </ol>
+
+  <div class="callout note">
+    <strong>First turn behavior.</strong> The first turn returns empty context &mdash; there's nothing stored yet. Every turn after that, the model receives the user's representation, derived conclusions, and recent message history automatically.
+  </div>
 
   <pre><code><span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">generateText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
 <span class="kw">import</span> { <span class="fn">anthropic</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/anthropic'</span>;
 
 <span class="kw">const</span> model = <span class="fn">wrapLanguageModel</span>({
-  <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-20250514'</span>),
+  <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-6'</span>),
   <span class="key">middleware</span>: session.<span class="fn">middleware</span>(),
 });</code></pre>
 
@@ -469,16 +474,17 @@ bun add @honcho/ai-sdk</code></pre>
 <section id="tools">
   <h2>Tools</h2>
 
-  <p>Honcho exposes five tools that the model can invoke during generation to query and update its understanding of the user:</p>
+  <p>Honcho exposes the following tools the model can invoke during generation to query and update what it knows about the user:</p>
 
   <div class="table-wrap">
     <table>
       <thead><tr><th>Tool</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>honcho_chat</code></td><td>Dialectic reasoning. Ask natural language questions about the user and get synthesized answers derived from their full interaction history.</td></tr>
+        <tr><td><code>honcho_chat</code></td><td>Reasoning. Ask natural language questions about the user and get synthesized answers derived from their full interaction history.</td></tr>
+        <tr><td><code>honcho_context</code></td><td>Get a short summary of recent context within a session.</td></tr>
         <tr><td><code>honcho_search</code></td><td>Semantic search across stored conversation messages.</td></tr>
         <tr><td><code>honcho_search_conclusions</code></td><td>Query derived conclusions: personality traits, preferences, behavioral patterns, biographical facts.</td></tr>
-        <tr><td><code>honcho_get_representation</code></td><td>Get a comprehensive synthesized profile of the user.</td></tr>
+        <tr><td><code>honcho_get_representation</code></td><td>Get a full synthesized profile of the user.</td></tr>
         <tr><td><code>honcho_save_conclusion</code></td><td>Persist an observation or conclusion about the user for future sessions.</td></tr>
       </tbody>
     </table>
@@ -490,7 +496,7 @@ bun add @honcho/ai-sdk</code></pre>
   <span class="key">prompt</span>: <span class="str">'What patterns have you noticed about me?'</span>,
 });</code></pre>
 
-  <p>Tools are pre-bound to the session's peers, so the model doesn't need to specify peer IDs.</p>
+  <p>Tools are pre-bound to the session's peers, so the model doesn't need to pass peer IDs.</p>
 </section>
 
 <!-- =============== EXAMPLES =============== -->
@@ -513,7 +519,7 @@ bun add @honcho/ai-sdk</code></pre>
 });
 
 <span class="kw">const</span> model = <span class="fn">wrapLanguageModel</span>({
-  <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-20250514'</span>),
+  <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-6'</span>),
   <span class="key">middleware</span>: session.<span class="fn">middleware</span>(),
 });
 
@@ -554,7 +560,7 @@ bun add @honcho/ai-sdk</code></pre>
   process.stdout.<span class="fn">write</span>(chunk);
 }</code></pre>
 
-  <p>Messages are persisted after the stream completes. The middleware returns the persistence promise from <code>flush()</code>, so the stream stays open until Honcho confirms the write.</p>
+  <p>Messages are persisted after the stream completes. The middleware handles this automatically &mdash; no additional code needed.</p>
 
   <h3>Next.js Route Handler</h3>
   <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
@@ -574,7 +580,7 @@ bun add @honcho/ai-sdk</code></pre>
   });
 
   <span class="kw">const</span> model = <span class="fn">wrapLanguageModel</span>({
-    <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-20250514'</span>),
+    <span class="key">model</span>: <span class="fn">anthropic</span>(<span class="str">'claude-sonnet-4-6'</span>),
     <span class="key">middleware</span>: session.<span class="fn">middleware</span>(),
   });
 
@@ -613,7 +619,7 @@ flowchart TD
 
   <ol class="lifecycle">
     <li><strong>transformParams</strong> &mdash; Middleware calls Honcho's session context API using the assistant's perspective on the user (<code>peer_perspective = assistant</code>, <code>peer_target = user</code>). Honcho returns the user's representation, peer card, session summary, and recent messages. These are formatted as XML sections and injected into the system prompt.</li>
-    <li><strong>Generation</strong> &mdash; The model generates with full context. If tools are available, it can invoke <code>honcho_chat</code> to ask reasoning questions, <code>honcho_search</code> to find specific past conversations, or <code>honcho_save_conclusion</code> to persist an important observation.</li>
+    <li><strong>Generation</strong> &mdash; The model generates with full context. If tools are passed, it can call <code>honcho_chat</code> to ask reasoning questions about the user, <code>honcho_context</code> to fetch recent session context on demand, <code>honcho_search</code> to retrieve specific past conversations, or <code>honcho_save_conclusion</code> to persist something worth remembering.</li>
     <li><strong>flush / wrapGenerate</strong> &mdash; After generation completes, middleware extracts the user's message and the assistant's response, then persists both to Honcho with correct peer attribution. Tool continuation steps (multi-step tool use) skip re-persisting the user message.</li>
     <li><strong>Between sessions</strong> &mdash; Honcho's reasoning engine processes stored messages asynchronously, deriving conclusions, updating the user's representation, and consolidating memory. The next session starts with richer context.</li>
   </ol>
@@ -667,6 +673,112 @@ flowchart TD
       </tbody>
     </table>
   </div>
+
+  <div class="callout note">
+    <strong>Frontier modules.</strong> <code>multi-agent</code>, <code>dreaming</code>, and <code>identity</code> are production-usable, but APIs may evolve as patterns harden.
+  </div>
+
+  <h3>Multi-Agent (<code>@honcho/ai-sdk/multi-agent</code>)</h3>
+  <p>Use this when multiple assistants should form memory about each other (not just the user).</p>
+  <pre><code>import { createMultiAgentSession, multiAgentMiddleware } from '@honcho/ai-sdk/multi-agent';
+import { wrapLanguageModel, generateText } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
+
+const group = await createMultiAgentSession({
+  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
+  sessionId: 'group-chat-1',
+  peers: [
+    { peerId: 'user-abc', observeMe: true, observeOthers: false },
+    { peerId: 'planner-agent', observeMe: false, observeOthers: true },
+    { peerId: 'critic-agent', observeMe: false, observeOthers: true },
+  ],
+});
+
+const plannerModel = wrapLanguageModel({
+  model: anthropic('claude-sonnet-4-6'),
+  middleware: multiAgentMiddleware(group, 'planner-agent'),
+});
+
+const { text } = await generateText({
+  model: plannerModel,
+  prompt: 'Given what you know about the user, propose a plan.',
+});</code></pre>
+  <ul>
+    <li><code>group.getPeerPerspective(observerPeerId, targetPeerId)</code> &mdash; one agent's view of another</li>
+    <li><code>group.askAboutPeer(observerPeerId, targetPeerId, query)</code> &mdash; dialectic query from one agent about another</li>
+    <li><code>group.scheduleDream(observerPeerId, observedPeerId)</code> &mdash; trigger consolidation for a relationship</li>
+  </ul>
+
+  <h3>Dreaming (<code>@honcho/ai-sdk/dreaming</code>)</h3>
+  <p>Use this to run explicit consolidation/reflection cycles outside user turns (cron jobs, background workers, end-of-session hooks).</p>
+  <pre><code>import { createDreamingAgent } from '@honcho/ai-sdk/dreaming';
+
+const dreamer = await createDreamingAgent({
+  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
+  observerPeerId: 'assistant-xyz',
+  observedPeerId: 'user-abc',
+  sessionId: 'session-123',
+});
+
+const insights = await dreamer.fullCycle({
+  pollIntervalMs: 3000,
+  timeoutMs: 120000,
+});</code></pre>
+  <ul>
+    <li><code>dreamer.dream()</code> &mdash; schedule a dream</li>
+    <li><code>dreamer.waitForCompletion()</code> &mdash; wait until queue work completes</li>
+    <li><code>dreamer.reflect()</code> / <code>dreamer.fullCycle()</code> &mdash; synthesize post-consolidation insights</li>
+  </ul>
+
+  <h3>Identity (<code>@honcho/ai-sdk/identity</code>)</h3>
+  <p>Use identity cards when you want a structured, editable memory document (append/replace/diff/search) on top of Honcho's peer card.</p>
+  <pre><code>import {
+  createPeerIdentity,
+  createMultiPerspectiveIdentity,
+  compareIdentityPerspectives,
+} from '@honcho/ai-sdk/identity';
+
+const identity = await createPeerIdentity({
+  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
+  peerId: 'assistant-xyz',
+  targetPeerId: 'user-abc',
+});
+
+await identity.merge(['Prefers short responses', 'Works in finance']);
+const snapshot = await identity.snapshot();
+
+const perspectives = await createMultiPerspectiveIdentity({
+  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
+  observerPeerIds: ['assistant-xyz', 'planner-agent', 'critic-agent'],
+  targetPeerId: 'user-abc',
+});
+
+const compared = await compareIdentityPerspectives(perspectives);</code></pre>
+  <ul>
+    <li><code>identity.merge(entries)</code> &mdash; add deduplicated facts</li>
+    <li><code>identity.diff(snapshot)</code> &mdash; track memory changes over time</li>
+    <li><code>compareIdentityPerspectives(...)</code> &mdash; consensus vs unique beliefs per observer</li>
+  </ul>
+
+  <h3>OpenAI (<code>@honcho/ai-sdk/openai</code>)</h3>
+  <p>Use this when you're integrating with the OpenAI SDK directly (without AI SDK tool wrappers).</p>
+  <pre><code>import OpenAI from 'openai';
+import { createHoncho } from '@honcho/ai-sdk';
+import { honchoOpenAITools } from '@honcho/ai-sdk/openai';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const honcho = createHoncho({
+  workspaceId: process.env.HONCHO_WORKSPACE_ID!,
+});
+
+const honchoTools = honchoOpenAITools({
+  client: honcho.client,
+  workspaceId: process.env.HONCHO_WORKSPACE_ID!,
+  defaultPeerId: 'user-abc',
+  defaultObserverPeerId: 'assistant-xyz',
+  defaultSessionId: 'session-123',
+});</code></pre>
+  <p>Pass <code>honchoTools.definitions</code> to OpenAI tool calling, then execute each call with <code>honchoTools.execute(name, args)</code>.</p>
 </section>
 
 <!-- =============== RESOURCES =============== -->
@@ -674,7 +786,7 @@ flowchart TD
   <h2>Resources</h2>
   <ul>
     <li><a href="https://docs.honcho.dev">Honcho Documentation</a></li>
-    <li><a href="https://github.com/plastic-labs/ai-sdk-honcho">GitHub Repository</a></li>
+    <li><a href="https://github.com/plastic-labs/vercel-ai-sdk-package">GitHub Repository</a></li>
     <li><a href="https://honcho.dev">Honcho Platform</a></li>
     <li><a href="https://plasticlabs.ai">Plastic Labs</a></li>
   </ul>

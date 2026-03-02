@@ -126,6 +126,7 @@ const session = honcho.session("session-id", peers, {
 | Tool | Description |
 |---|---|
 | `honcho_chat` | Ask Honcho's dialectic reasoning engine a question about the user |
+| `honcho_context` | Retrieve session context (representation, card, summary, recent messages) |
 | `honcho_search` | Semantic search across stored conversation messages |
 | `honcho_get_representation` | Retrieve the current long-form user representation |
 | `honcho_search_conclusions` | Query derived conclusions and observations |

@@ -76,6 +76,40 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
     {
       type: "function",
       function: {
+        name: "honcho_context",
+        description: TOOL_DESCRIPTIONS.getContext,
+        parameters: {
+          type: "object",
+          properties: {
+            peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
+            sessionId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.sessionId,
+            },
+            includeSummary: {
+              type: "boolean",
+              description: PARAM_DESCRIPTIONS.includeSummary,
+            },
+            tokens: {
+              type: "number",
+              description: PARAM_DESCRIPTIONS.contextTokens,
+            },
+            messageLimit: {
+              type: "number",
+              description: PARAM_DESCRIPTIONS.messageLimit,
+            },
+          },
+          required: [],
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
         name: "honcho_search",
         description: TOOL_DESCRIPTIONS.search,
         parameters: {
@@ -144,6 +178,69 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
       return client.workspaces.peers.chat(workspaceId, peerId, {
         query: args.query as string,
       });
+    },
+
+    honcho_context: async (args) => {
+      const target = (args.peerId as string) ?? defaultPeerId;
+      const observer = (args.observerId as string) ?? defaultObserverPeerId ?? target;
+      const session = (args.sessionId as string) ?? defaultSessionId;
+      const includeSummary = (args.includeSummary as boolean) ?? true;
+      const tokensRaw = (args.tokens as number) ?? DEFAULTS.contextTokens;
+      const messageLimitRaw = (args.messageLimit as number) ?? DEFAULTS.contextMessageLimit;
+      const tokens = Math.max(1, Math.floor(tokensRaw));
+      const messageLimit = Math.min(50, Math.max(1, Math.floor(messageLimitRaw)));
+
+      if (!target) throw new Error("peerId is required");
+      if (!observer) throw new Error("observerId is required");
+
+      if (session) {
+        const hasPeerPair = observer !== target;
+        const ctx = await client.workspaces.sessions.context(workspaceId, session, {
+          peer_perspective: hasPeerPair ? observer : undefined,
+          peer_target: hasPeerPair ? target : undefined,
+          summary: includeSummary,
+          tokens,
+        });
+
+        const messages = (ctx.messages ?? [])
+          .slice(-messageLimit)
+          .map((m) => ({
+            content: m.content,
+            peer_id: m.peer_id,
+            role:
+              m.peer_id === observer
+                ? "observer"
+                : m.peer_id === target
+                  ? "target"
+                  : "other",
+          }));
+
+        return {
+          session_id: session,
+          observer_id: observer,
+          target_id: target,
+          representation: ctx.peer_representation ?? null,
+          peer_card: ctx.peer_card ?? null,
+          summary: includeSummary ? (ctx.summary?.content ?? null) : null,
+          messages,
+          message_count: messages.length,
+        };
+      }
+
+      const ctx = await client.workspaces.peers.context(workspaceId, observer, {
+        target: observer === target ? undefined : target,
+      });
+
+      return {
+        session_id: null,
+        observer_id: observer,
+        target_id: target,
+        representation: ctx.representation ?? null,
+        peer_card: ctx.peer_card ?? null,
+        summary: null,
+        messages: [],
+        message_count: 0,
+      };
     },
 
     honcho_search: async (args) => {

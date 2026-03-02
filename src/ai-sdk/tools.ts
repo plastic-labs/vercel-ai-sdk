@@ -88,6 +88,128 @@ export function honchoSearchTool(config: HonchoToolsConfig) {
 }
 
 /**
+ * Get session-aware context (representation, card, summary, recent messages)
+ * from an observer's perspective about a target peer.
+ */
+export function honchoContextTool(config: HonchoToolsConfig) {
+  const {
+    client,
+    workspaceId,
+    defaultPeerId,
+    defaultObserverPeerId,
+    defaultSessionId,
+  } = config;
+
+  return tool({
+    description: TOOL_DESCRIPTIONS.getContext,
+    inputSchema: z.object({
+      peerId: z
+        .string()
+        .optional()
+        .describe(PARAM_DESCRIPTIONS.peerId),
+      observerId: z
+        .string()
+        .optional()
+        .describe(PARAM_DESCRIPTIONS.observerId),
+      sessionId: z
+        .string()
+        .optional()
+        .describe(PARAM_DESCRIPTIONS.sessionId),
+      includeSummary: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe(PARAM_DESCRIPTIONS.includeSummary),
+      tokens: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .default(DEFAULTS.contextTokens)
+        .describe(PARAM_DESCRIPTIONS.contextTokens),
+      messageLimit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .default(DEFAULTS.contextMessageLimit)
+        .describe(PARAM_DESCRIPTIONS.messageLimit),
+    }),
+    execute: async ({
+      peerId,
+      observerId,
+      sessionId,
+      includeSummary,
+      tokens,
+      messageLimit,
+    }) => {
+      const target = peerId ?? defaultPeerId;
+      const observer = observerId ?? defaultObserverPeerId ?? target;
+      const session = sessionId ?? defaultSessionId;
+
+      if (!target) throw new Error("peerId is required for honcho_context");
+      if (!observer) throw new Error("observerId is required for honcho_context");
+
+      if (session) {
+        const hasPeerPair = observer !== target;
+        const ctx = await client.workspaces.sessions.context(
+          workspaceId,
+          session,
+          {
+            peer_perspective: hasPeerPair ? observer : undefined,
+            peer_target: hasPeerPair ? target : undefined,
+            summary: includeSummary,
+            tokens,
+          }
+        );
+
+        const messages = (ctx.messages ?? [])
+          .slice(-messageLimit)
+          .map((m) => ({
+            content: m.content,
+            peer_id: m.peer_id,
+            role:
+              m.peer_id === observer
+                ? "observer"
+                : m.peer_id === target
+                  ? "target"
+                  : "other",
+          }));
+
+        return {
+          session_id: session,
+          observer_id: observer,
+          target_id: target,
+          representation: ctx.peer_representation ?? null,
+          peer_card: ctx.peer_card ?? null,
+          summary: includeSummary ? (ctx.summary?.content ?? null) : null,
+          messages,
+          message_count: messages.length,
+        };
+      }
+
+      const ctx = await client.workspaces.peers.context(
+        workspaceId,
+        observer,
+        { target: observer === target ? undefined : target }
+      );
+
+      return {
+        session_id: null,
+        observer_id: observer,
+        target_id: target,
+        representation: ctx.representation ?? null,
+        peer_card: ctx.peer_card ?? null,
+        summary: null,
+        messages: [],
+        message_count: 0,
+      };
+    },
+  });
+}
+
+/**
  * Query derived conclusions/observations about a user.
  */
 export function honchoSearchConclusionsTool(config: HonchoToolsConfig) {
@@ -208,6 +330,7 @@ export function honchoSaveConclusionTool(config: HonchoToolsConfig) {
 export function honchoTools(config: HonchoToolsConfig) {
   return {
     honcho_chat: honchoChatTool(config),
+    honcho_context: honchoContextTool(config),
     honcho_search: honchoSearchTool(config),
     honcho_search_conclusions: honchoSearchConclusionsTool(config),
     honcho_get_representation: honchoGetRepresentationTool(config),
