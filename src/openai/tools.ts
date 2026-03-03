@@ -82,7 +82,7 @@ function parseIntegerArg(
  *
  * @example
  * ```ts
- * import { honchoOpenAITools } from "@honcho/ai-sdk/openai";
+ * import { honchoOpenAITools } from "@honcho-ai/ai-sdk/openai";
  * import OpenAI from "openai";
  *
  * const openai = new OpenAI();

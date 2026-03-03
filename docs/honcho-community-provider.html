@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>@honcho/ai-sdk: Community Provider Documentation</title>
+<title>@honcho-ai/ai-sdk: Community Provider Documentation</title>
 <style>
   :root {
     --bg:             #0b0e14;
@@ -377,7 +377,7 @@
 <!-- =============== OVERVIEW =============== -->
 <section id="overview">
   <h2>Overview</h2>
-  <p><code>@honcho/ai-sdk</code> wraps any AI SDK model with persistent, reasoning-backed user memory. <a href="https://honcho.dev">Honcho</a> isn't a conversation log &mdash; it derives conclusions about users, builds evolving representations of them over time, and can answer natural language questions about them from their full interaction history.</p>
+  <p><code>@honcho-ai/ai-sdk</code> wraps any AI SDK model with persistent, reasoning-backed user memory. <a href="https://honcho.dev">Honcho</a> isn't a conversation log &mdash; it derives conclusions about users, builds evolving representations of them over time, and can answer natural language questions about them from their full interaction history.</p>
 
   <p>The integration is middleware and tools that compose with whatever provider you're already using. Your model stays yours &mdash; Anthropic, OpenAI, Google, anything with an AI SDK provider. Honcho injects relevant context into the system prompt before generation and persists messages after. The model also gets six tools it can call mid-conversation to query or update what it understands about the user.</p>
 
@@ -391,7 +391,7 @@
   <h2>Setup</h2>
 
   <pre><code><span class="cm"># install</span>
-bun add @honcho/ai-sdk</code></pre>
+bun add @honcho-ai/ai-sdk</code></pre>
 
   <p>Get your API key and workspace ID from <a href="https://app.honcho.dev">app.honcho.dev</a>:</p>
 
@@ -399,7 +399,7 @@ bun add @honcho/ai-sdk</code></pre>
 <span class="kw">export</span> <span class="key">HONCHO_WORKSPACE_ID</span>=<span class="str">your-workspace-id</span></code></pre>
 
   <h3>Provider Instance</h3>
-  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho-ai/ai-sdk'</span>;
 
 <span class="kw">const</span> honcho = <span class="fn">createHoncho</span>({
   <span class="key">workspaceId</span>: process.env.<span class="key">HONCHO_WORKSPACE_ID</span>!,
@@ -505,7 +505,7 @@ bun add @honcho/ai-sdk</code></pre>
 
   <h3>generateText</h3>
   <p>A complete example with memory-augmented generation:</p>
-  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho-ai/ai-sdk'</span>;
 <span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">generateText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
 <span class="kw">import</span> { <span class="fn">anthropic</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/anthropic'</span>;
 
@@ -532,7 +532,7 @@ bun add @honcho/ai-sdk</code></pre>
   <p>On the first turn, Honcho returns empty context. On subsequent turns, the model receives the user's representation, derived conclusions, and recent message history &mdash; automatically, with no additional code.</p>
 
   <h3>streamText</h3>
-  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho-ai/ai-sdk'</span>;
 <span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">streamText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
 <span class="kw">import</span> { <span class="fn">openai</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/openai'</span>;
 
@@ -563,7 +563,7 @@ bun add @honcho/ai-sdk</code></pre>
   <p>Messages are persisted after the stream completes. The middleware handles this automatically &mdash; no additional code needed.</p>
 
   <h3>Next.js Route Handler</h3>
-  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho/ai-sdk'</span>;
+  <pre><code><span class="kw">import</span> { <span class="fn">createHoncho</span> } <span class="kw">from</span> <span class="str">'@honcho-ai/ai-sdk'</span>;
 <span class="kw">import</span> { <span class="fn">wrapLanguageModel</span>, <span class="fn">streamText</span> } <span class="kw">from</span> <span class="str">'ai'</span>;
 <span class="kw">import</span> { <span class="fn">anthropic</span> } <span class="kw">from</span> <span class="str">'@ai-sdk/anthropic'</span>;
 
@@ -660,120 +660,33 @@ flowchart TD
 <section id="modules">
   <h2>Additional Modules</h2>
 
-  <p>The <code>@honcho/ai-sdk</code> package includes modules for advanced use cases:</p>
+  <p>The <code>@honcho-ai/ai-sdk</code> package includes modules for advanced use cases:</p>
 
   <div class="table-wrap">
     <table>
       <thead><tr><th>Module</th><th>Import</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td>Multi-Agent</td><td><code>@honcho/ai-sdk/multi-agent</code></td><td>Peer-to-peer observation between multiple agents</td></tr>
-        <tr><td>Dreaming</td><td><code>@honcho/ai-sdk/dreaming</code></td><td>Autonomous memory consolidation and self-reflection</td></tr>
-        <tr><td>Identity</td><td><code>@honcho/ai-sdk/identity</code></td><td>Live identity documents backed by Honcho peer cards</td></tr>
-        <tr><td>OpenAI</td><td><code>@honcho/ai-sdk/openai</code></td><td>Direct OpenAI SDK integration (without AI SDK)</td></tr>
+        <tr><td>OpenAI</td><td><code>@honcho-ai/ai-sdk/openai</code></td><td>Direct OpenAI SDK integration (without AI SDK tool wrappers).</td></tr>
+        <tr><td>Identity</td><td><code>@honcho-ai/ai-sdk/identity</code></td><td>Live identity documents backed by Honcho peer cards.</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="callout note">
-    <strong>Frontier modules.</strong> <code>multi-agent</code>, <code>dreaming</code>, and <code>identity</code> are production-usable, but APIs may evolve as patterns harden.
+    <strong>Multi-peer support without multi-agent subpath.</strong> The redesigned API no longer exposes <code>@honcho-ai/ai-sdk/multi-agent</code> as a separate entry point. Use <code>assistantId</code> per call for multi-peer scenarios.
   </div>
 
-  <h3>Multi-Agent (<code>@honcho/ai-sdk/multi-agent</code>)</h3>
-  <p>Use this when multiple assistants should form memory about each other (not just the user).</p>
-  <pre><code>import { createMultiAgentSession, multiAgentMiddleware } from '@honcho/ai-sdk/multi-agent';
-import { wrapLanguageModel, generateText } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
-
-const group = await createMultiAgentSession({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  sessionId: 'group-chat-1',
-  peers: [
-    { peerId: 'user-abc', observeMe: true, observeOthers: false },
-    { peerId: 'planner-agent', observeMe: false, observeOthers: true },
-    { peerId: 'critic-agent', observeMe: false, observeOthers: true },
-  ],
-});
-
-const plannerModel = wrapLanguageModel({
-  model: anthropic('claude-sonnet-4-6'),
-  middleware: multiAgentMiddleware(group, 'planner-agent'),
-});
-
-const { text } = await generateText({
-  model: plannerModel,
-  prompt: 'Given what you know about the user, propose a plan.',
-});</code></pre>
-  <ul>
-    <li><code>group.getPeerPerspective(observerPeerId, targetPeerId)</code> &mdash; one agent's view of another</li>
-    <li><code>group.askAboutPeer(observerPeerId, targetPeerId, query)</code> &mdash; dialectic query from one agent about another</li>
-    <li><code>group.scheduleDream(observerPeerId, observedPeerId)</code> &mdash; trigger consolidation for a relationship</li>
-  </ul>
-
-  <h3>Dreaming (<code>@honcho/ai-sdk/dreaming</code>)</h3>
-  <p>Use this to run explicit consolidation/reflection cycles outside user turns (cron jobs, background workers, end-of-session hooks).</p>
-  <pre><code>import { createDreamingAgent } from '@honcho/ai-sdk/dreaming';
-
-const dreamer = await createDreamingAgent({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  observerPeerId: 'assistant-xyz',
-  observedPeerId: 'user-abc',
-  sessionId: 'session-123',
-});
-
-const insights = await dreamer.fullCycle({
-  pollIntervalMs: 3000,
-  timeoutMs: 120000,
-});</code></pre>
-  <ul>
-    <li><code>dreamer.dream()</code> &mdash; schedule a dream</li>
-    <li><code>dreamer.waitForCompletion()</code> &mdash; wait until queue work completes</li>
-    <li><code>dreamer.reflect()</code> / <code>dreamer.fullCycle()</code> &mdash; synthesize post-consolidation insights</li>
-  </ul>
-
-  <h3>Identity (<code>@honcho/ai-sdk/identity</code>)</h3>
-  <p>Use identity cards when you want a structured, editable memory document (append/replace/diff/search) on top of Honcho's peer card.</p>
-  <pre><code>import {
-  createPeerIdentity,
-  createMultiPerspectiveIdentity,
-  compareIdentityPerspectives,
-} from '@honcho/ai-sdk/identity';
-
-const identity = await createPeerIdentity({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  peerId: 'assistant-xyz',
-  targetPeerId: 'user-abc',
-});
-
-await identity.merge(['Prefers short responses', 'Works in finance']);
-const snapshot = await identity.snapshot();
-
-const perspectives = await createMultiPerspectiveIdentity({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  observerPeerIds: ['assistant-xyz', 'planner-agent', 'critic-agent'],
-  targetPeerId: 'user-abc',
-});
-
-const compared = await compareIdentityPerspectives(perspectives);</code></pre>
-  <ul>
-    <li><code>identity.merge(entries)</code> &mdash; add deduplicated facts</li>
-    <li><code>identity.diff(snapshot)</code> &mdash; track memory changes over time</li>
-    <li><code>compareIdentityPerspectives(...)</code> &mdash; consensus vs unique beliefs per observer</li>
-  </ul>
-
-  <h3>OpenAI (<code>@honcho/ai-sdk/openai</code>)</h3>
+  <h3>OpenAI (<code>@honcho-ai/ai-sdk/openai</code>)</h3>
   <p>Use this when you're integrating with the OpenAI SDK directly (without AI SDK tool wrappers).</p>
   <pre><code>import OpenAI from 'openai';
-import { createHoncho } from '@honcho/ai-sdk';
-import { honchoOpenAITools } from '@honcho/ai-sdk/openai';
+import { createHoncho } from '@honcho-ai/ai-sdk';
+import { honchoOpenAITools } from '@honcho-ai/ai-sdk/openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const honcho = createHoncho({
-  workspaceId: process.env.HONCHO_WORKSPACE_ID!,
-});
+const honcho = createHoncho();
 
 const honchoTools = honchoOpenAITools({
   client: honcho.client,
-  workspaceId: process.env.HONCHO_WORKSPACE_ID!,
   defaultPeerId: 'user-abc',
   defaultObserverPeerId: 'assistant-xyz',
   defaultSessionId: 'session-123',

@@ -1,11 +1,11 @@
-# @honcho/ai-sdk
+# @honcho-ai/ai-sdk
 
 Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powered by [Honcho](https://honcho.dev).
 
 ## Install
 
 ```bash
-npm install @honcho/ai-sdk
+npm install @honcho-ai/ai-sdk
 ```
 
 Requires `ai@^6` and Node.js `>=18`.
@@ -56,7 +56,7 @@ Override per call when needed, or disable session behavior for one call with `se
 ```ts
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { createHoncho } from "@honcho/ai-sdk";
+import { createHoncho } from "@honcho-ai/ai-sdk";
 
 const honcho = createHoncho();
 
@@ -200,9 +200,8 @@ const anthropicMessages = context.toAnthropic("assistant");
 ## Experimental Modules
 
 These are still exposed as separate modules:
-- `@honcho/ai-sdk/openai`
-- `@honcho/ai-sdk/dreaming`
-- `@honcho/ai-sdk/identity`
+- `@honcho-ai/ai-sdk/openai`
+- `@honcho-ai/ai-sdk/identity`
 
 ## Development
 

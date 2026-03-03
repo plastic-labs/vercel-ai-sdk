@@ -1,5 +1,5 @@
 {
-  "name": "@honcho/ai-sdk",
+  "name": "@honcho-ai/ai-sdk",
   "version": "0.1.0",
   "description": "Honcho memory for the Vercel AI SDK -- persistent identity, theory-of-mind, dialectic reasoning",
   "type": "module",
@@ -19,10 +19,6 @@
     "./openai": {
       "import": "./dist/openai/index.js",
       "types": "./dist/openai/index.d.ts"
-    },
-    "./dreaming": {
-      "import": "./dist/dreaming/index.js",
-      "types": "./dist/dreaming/index.d.ts"
     },
     "./identity": {
       "import": "./dist/identity/index.js",

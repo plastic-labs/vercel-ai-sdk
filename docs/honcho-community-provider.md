@@ -1,6 +1,6 @@
 # Honcho
 
-`@honcho/ai-sdk` wraps any AI SDK model with persistent, reasoning-backed user memory. [Honcho](https://honcho.dev) is not a conversation log -- it derives conclusions about users, builds evolving representations over time, and can answer natural language questions about users from their full interaction history.
+`@honcho-ai/ai-sdk` wraps any AI SDK model with persistent, reasoning-backed user memory. [Honcho](https://honcho.dev) is not a conversation log -- it derives conclusions about users, builds evolving representations over time, and can answer natural language questions about users from their full interaction history.
 
 The integration is middleware and tools that compose with whatever provider you're already using. Your model stays yours -- Anthropic, OpenAI, Google, anything with an AI SDK provider. Honcho injects relevant context into the system prompt before generation and persists messages after. The model also gets six tools it can call mid-conversation to query or update what it understands about the user.
 
@@ -9,7 +9,7 @@ The integration is middleware and tools that compose with whatever provider you'
 ## Setup
 
 ```bash
-bun add @honcho/ai-sdk
+bun add @honcho-ai/ai-sdk
 ```
 
 ### API Key
@@ -26,7 +26,7 @@ export HONCHO_WORKSPACE_ID=your-workspace-id
 Create a Honcho provider instance with `createHoncho`:
 
 ```typescript
-import { createHoncho } from '@honcho/ai-sdk';
+import { createHoncho } from '@honcho-ai/ai-sdk';
 
 const honcho = createHoncho({
   workspaceId: process.env.HONCHO_WORKSPACE_ID!,
@@ -105,7 +105,7 @@ Tools are pre-bound to the session's peers, so the model doesn't need to specify
 A complete example with memory-augmented generation:
 
 ```typescript
-import { createHoncho } from '@honcho/ai-sdk';
+import { createHoncho } from '@honcho-ai/ai-sdk';
 import { wrapLanguageModel, generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 
@@ -135,7 +135,7 @@ On the first turn, Honcho returns empty context. On subsequent turns, the model 
 ### `streamText`
 
 ```typescript
-import { createHoncho } from '@honcho/ai-sdk';
+import { createHoncho } from '@honcho-ai/ai-sdk';
 import { wrapLanguageModel, streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
@@ -169,7 +169,7 @@ Messages are persisted after the stream completes. The middleware returns the pe
 ### Next.js Route Handler
 
 ```typescript
-import { createHoncho } from '@honcho/ai-sdk';
+import { createHoncho } from '@honcho-ai/ai-sdk';
 import { wrapLanguageModel, streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 
@@ -250,127 +250,25 @@ const honcho = createHoncho({
 
 | Module | Import | Description |
 |---|---|---|
-| Multi-Agent | `@honcho/ai-sdk/multi-agent` | Peer-to-peer observation between multiple agents |
-| Dreaming | `@honcho/ai-sdk/dreaming` | Autonomous memory consolidation and self-reflection |
-| Identity | `@honcho/ai-sdk/identity` | Live identity documents backed by Honcho peer cards |
-| OpenAI | `@honcho/ai-sdk/openai` | Direct OpenAI SDK integration (without AI SDK) |
+| OpenAI | `@honcho-ai/ai-sdk/openai` | Direct OpenAI SDK integration (without AI SDK tool wrappers). |
+| Identity | `@honcho-ai/ai-sdk/identity` | Live identity documents backed by Honcho peer cards. |
 
-> **Note:** `multi-agent`, `dreaming`, and `identity` are frontier modules. They are production-usable, but APIs may evolve as patterns harden.
+> **Note:** The redesigned API no longer exposes `@honcho-ai/ai-sdk/multi-agent` as a separate entry point. Multi-peer scenarios are handled by varying `assistantId` per call.
 
-### Multi-Agent (`@honcho/ai-sdk/multi-agent`)
-
-Use this when multiple assistants should form memory about each other (not just the user).
-
-```typescript
-import { createMultiAgentSession, multiAgentMiddleware } from '@honcho/ai-sdk/multi-agent';
-import { wrapLanguageModel, generateText } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
-
-const group = await createMultiAgentSession({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  sessionId: 'group-chat-1',
-  peers: [
-    { peerId: 'user-abc', observeMe: true, observeOthers: false },
-    { peerId: 'planner-agent', observeMe: false, observeOthers: true },
-    { peerId: 'critic-agent', observeMe: false, observeOthers: true },
-  ],
-});
-
-const plannerModel = wrapLanguageModel({
-  model: anthropic('claude-sonnet-4-6'),
-  middleware: multiAgentMiddleware(group, 'planner-agent'),
-});
-
-const { text } = await generateText({
-  model: plannerModel,
-  prompt: 'Given what you know about the user, propose a plan.',
-});
-```
-
-Useful APIs:
-
-- `group.getPeerPerspective(observerPeerId, targetPeerId)` -- one agent's view of another
-- `group.askAboutPeer(observerPeerId, targetPeerId, query)` -- dialectic query from one agent about another
-- `group.scheduleDream(observerPeerId, observedPeerId)` -- trigger consolidation for a relationship
-
-### Dreaming (`@honcho/ai-sdk/dreaming`)
-
-Use this to run explicit consolidation/reflection cycles outside user turns (cron jobs, background workers, end-of-session hooks).
-
-```typescript
-import { createDreamingAgent } from '@honcho/ai-sdk/dreaming';
-
-const dreamer = await createDreamingAgent({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  observerPeerId: 'assistant-xyz',
-  observedPeerId: 'user-abc',
-  sessionId: 'session-123',
-});
-
-const insights = await dreamer.fullCycle({
-  pollIntervalMs: 3000,
-  timeoutMs: 120000,
-});
-```
-
-Useful APIs:
-
-- `dreamer.dream()` -- schedule a dream
-- `dreamer.waitForCompletion()` -- wait until queue work completes
-- `dreamer.reflect()` / `dreamer.fullCycle()` -- synthesize post-consolidation insights
-
-### Identity (`@honcho/ai-sdk/identity`)
-
-Use identity cards when you want a structured, editable memory document (append/replace/diff/search) on top of Honcho's peer card.
-
-```typescript
-import {
-  createPeerIdentity,
-  createMultiPerspectiveIdentity,
-  compareIdentityPerspectives,
-} from '@honcho/ai-sdk/identity';
-
-const identity = await createPeerIdentity({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  peerId: 'assistant-xyz',
-  targetPeerId: 'user-abc',
-});
-
-await identity.merge(['Prefers short responses', 'Works in finance']);
-const snapshot = await identity.snapshot();
-
-const perspectives = await createMultiPerspectiveIdentity({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  observerPeerIds: ['assistant-xyz', 'planner-agent', 'critic-agent'],
-  targetPeerId: 'user-abc',
-});
-
-const compared = await compareIdentityPerspectives(perspectives);
-```
-
-Useful APIs:
-
-- `identity.merge(entries)` -- add deduplicated facts
-- `identity.diff(snapshot)` -- track memory changes over time
-- `compareIdentityPerspectives(...)` -- consensus vs unique beliefs per observer
-
-### OpenAI (`@honcho/ai-sdk/openai`)
+### OpenAI (`@honcho-ai/ai-sdk/openai`)
 
 Use this when you're integrating with the OpenAI SDK directly (without AI SDK tool wrappers).
 
 ```typescript
 import OpenAI from 'openai';
-import { createHoncho } from '@honcho/ai-sdk';
-import { honchoOpenAITools } from '@honcho/ai-sdk/openai';
+import { createHoncho } from '@honcho-ai/ai-sdk';
+import { honchoOpenAITools } from '@honcho-ai/ai-sdk/openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const honcho = createHoncho({
-  workspaceId: process.env.HONCHO_WORKSPACE_ID!,
-});
+const honcho = createHoncho();
 
 const honchoTools = honchoOpenAITools({
   client: honcho.client,
-  workspaceId: process.env.HONCHO_WORKSPACE_ID!,
   defaultPeerId: 'user-abc',
   defaultObserverPeerId: 'assistant-xyz',
   defaultSessionId: 'session-123',

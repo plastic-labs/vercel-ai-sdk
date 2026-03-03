@@ -1,5 +1,5 @@
 /**
- * Live integration script for the flat @honcho/ai-sdk API.
+ * Live integration script for the flat @honcho-ai/ai-sdk API.
  *
  * Required env:
  * - HONCHO_API_KEY
@@ -184,7 +184,7 @@ async function inspectSession(honcho: ReturnType<typeof createHoncho>): Promise<
 }
 
 async function main(): Promise<void> {
-  console.log("=== @honcho/ai-sdk flat API integration script ===");
+  console.log("=== @honcho-ai/ai-sdk flat API integration script ===");
   console.log(`workspace=${WORKSPACE_ID}`);
   console.log(`user=${USER_ID}`);
   console.log(`session=${SESSION_ID}`);
