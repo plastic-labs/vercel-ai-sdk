@@ -20,10 +20,6 @@
       "import": "./dist/openai/index.js",
       "types": "./dist/openai/index.d.ts"
     },
-    "./multi-agent": {
-      "import": "./dist/multi-agent/index.js",
-      "types": "./dist/multi-agent/index.d.ts"
-    },
     "./dreaming": {
       "import": "./dist/dreaming/index.js",
       "types": "./dist/dreaming/index.d.ts"
@@ -75,12 +71,12 @@
     "access": "public"
   },
   "dependencies": {
-    "@honcho-ai/core": "^2.2.0"
+    "@honcho-ai/sdk": "^2.0.1"
   },
   "peerDependencies": {
+    "@ai-sdk/provider": "^3.0.0",
     "ai": "^6.0.0",
-    "zod": "^3.23.0 || ^4.0.0",
-    "@ai-sdk/provider": "^3.0.0"
+    "zod": "^3.23.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
     "ai": {

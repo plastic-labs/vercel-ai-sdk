@@ -1,47 +1,63 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type Honcho from "@honcho-ai/core";
 import { TOOL_DESCRIPTIONS, PARAM_DESCRIPTIONS, DEFAULTS } from "../shared/descriptions.js";
+import type { Peer, Session } from "@honcho-ai/sdk";
+import type { HonchoToolsConfig } from "../types.js";
 
-export interface HonchoToolsConfig {
-  /** Honcho client instance. */
-  client: Honcho;
-  /** Workspace ID. */
-  workspaceId: string;
-  /** Default peer ID. Can be overridden per-tool via input schema. */
-  defaultPeerId?: string;
-  /** Default session ID. */
-  defaultSessionId?: string;
-  /** Default peer ID for the AI/observer perspective. */
-  defaultObserverPeerId?: string;
+export interface ResolvedToolsConfig {
+  userId: string;
+  sessionId?: string;
+  assistantId: string;
 }
+
+export interface ToolResources {
+  userPeer: Peer;
+  assistantPeer: Peer;
+  session?: Session;
+}
+
+export interface CreateToolsOptions {
+  config: ResolvedToolsConfig;
+  ensureResources: () => Promise<ToolResources>;
+}
+
+type SessionContextResult = {
+  session_id: string | null;
+  observer_id: string;
+  target_id: string;
+  representation: string | null;
+  peer_card: string[] | null;
+  summary: string | null;
+  messages: Array<{
+    content: string;
+    peer_id: string;
+    role: "assistant" | "user";
+  }>;
+  message_count: number;
+};
 
 /**
  * Dialectic chat tool -- ask questions about a user using Honcho's
  * reasoning engine. This is Honcho's killer feature.
  */
-export function honchoChatTool(config: HonchoToolsConfig) {
-  const { client, workspaceId, defaultPeerId } = config;
-
+function honchoChatTool(options: CreateToolsOptions) {
+  const { config, ensureResources } = options;
   return tool({
     description: TOOL_DESCRIPTIONS.chat,
     inputSchema: z.object({
       query: z.string().describe(PARAM_DESCRIPTIONS.query),
-      peerId: z
+      targetId: z
         .string()
         .optional()
-        .describe(PARAM_DESCRIPTIONS.peerId),
+        .describe(PARAM_DESCRIPTIONS.targetPeerId),
     }),
-    execute: async ({ query, peerId }) => {
-      const pid = peerId ?? defaultPeerId;
-      if (!pid) throw new Error("peerId is required for honcho_chat");
-
-      const response = await client.workspaces.peers.chat(
-        workspaceId,
-        pid,
-        { query }
-      );
-      return { content: response.content };
+    execute: async ({ query, targetId }) => {
+      const { assistantPeer, session } = await ensureResources();
+      const response = await assistantPeer.chat(query, {
+        target: targetId ?? config.userId,
+        session,
+      });
+      return { content: response ?? "" };
     },
   });
 }
@@ -49,37 +65,26 @@ export function honchoChatTool(config: HonchoToolsConfig) {
 /**
  * Semantic search across stored conversation messages for a peer.
  */
-export function honchoSearchTool(config: HonchoToolsConfig) {
-  const { client, workspaceId, defaultPeerId } = config;
-
+function honchoSearchTool(options: CreateToolsOptions) {
+  const { ensureResources } = options;
   return tool({
     description: TOOL_DESCRIPTIONS.search,
     inputSchema: z.object({
       query: z.string().describe(PARAM_DESCRIPTIONS.query),
-      peerId: z
-        .string()
-        .optional()
-        .describe(PARAM_DESCRIPTIONS.peerId),
       limit: z
         .number()
         .optional()
         .default(DEFAULTS.searchLimit)
         .describe(PARAM_DESCRIPTIONS.limit),
     }),
-    execute: async ({ query, peerId, limit }) => {
-      const pid = peerId ?? defaultPeerId;
-      if (!pid) throw new Error("peerId is required for honcho_search");
-
-      const results = await client.workspaces.peers.search(
-        workspaceId,
-        pid,
-        { query, limit }
-      );
+    execute: async ({ query, limit }) => {
+      const { userPeer } = await ensureResources();
+      const results = await userPeer.search(query, { limit });
       return {
         results: results.map((m) => ({
           content: m.content,
-          peer_id: m.peer_id,
-          created_at: m.created_at,
+          peer_id: m.peerId,
+          created_at: m.createdAt,
         })),
         count: results.length,
       };
@@ -91,30 +96,15 @@ export function honchoSearchTool(config: HonchoToolsConfig) {
  * Get session-aware context (representation, card, summary, recent messages)
  * from an observer's perspective about a target peer.
  */
-export function honchoContextTool(config: HonchoToolsConfig) {
-  const {
-    client,
-    workspaceId,
-    defaultPeerId,
-    defaultObserverPeerId,
-    defaultSessionId,
-  } = config;
-
+function honchoContextTool(options: CreateToolsOptions) {
+  const { config, ensureResources } = options;
   return tool({
     description: TOOL_DESCRIPTIONS.getContext,
     inputSchema: z.object({
-      peerId: z
+      targetId: z
         .string()
         .optional()
-        .describe(PARAM_DESCRIPTIONS.peerId),
-      observerId: z
-        .string()
-        .optional()
-        .describe(PARAM_DESCRIPTIONS.observerId),
-      sessionId: z
-        .string()
-        .optional()
-        .describe(PARAM_DESCRIPTIONS.sessionId),
+        .describe(PARAM_DESCRIPTIONS.targetPeerId),
       includeSummary: z
         .boolean()
         .optional()
@@ -137,74 +127,54 @@ export function honchoContextTool(config: HonchoToolsConfig) {
         .describe(PARAM_DESCRIPTIONS.messageLimit),
     }),
     execute: async ({
-      peerId,
-      observerId,
-      sessionId,
+      targetId,
       includeSummary,
       tokens,
       messageLimit,
-    }) => {
-      const target = peerId ?? defaultPeerId;
-      const observer = observerId ?? defaultObserverPeerId ?? target;
-      const session = sessionId ?? defaultSessionId;
-
-      if (!target) throw new Error("peerId is required for honcho_context");
-      if (!observer) throw new Error("observerId is required for honcho_context");
+    }): Promise<SessionContextResult> => {
+      const { assistantPeer, session } = await ensureResources();
+      const target = targetId ?? config.userId;
 
       if (session) {
-        const hasPeerPair = observer !== target;
-        const ctx = await client.workspaces.sessions.context(
-          workspaceId,
-          session,
-          {
-            peer_perspective: hasPeerPair ? observer : undefined,
-            peer_target: hasPeerPair ? target : undefined,
-            summary: includeSummary,
-            tokens,
-          }
-        );
+        const context = await session.context({
+          peerPerspective: config.assistantId,
+          peerTarget: target,
+          summary: includeSummary,
+          tokens,
+        });
 
-        const messages = (ctx.messages ?? [])
+        const messages = context.messages
           .slice(-messageLimit)
-          .map((m) => ({
-            content: m.content,
-            peer_id: m.peer_id,
-            role:
-              m.peer_id === observer
-                ? "observer"
-                : m.peer_id === target
-                  ? "target"
-                  : "other",
+          .map((message) => ({
+            content: message.content,
+            peer_id: message.peerId,
+            role: (message.peerId === config.assistantId ? "assistant" : "user") as "assistant" | "user",
           }));
 
         return {
-          session_id: session,
-          observer_id: observer,
+          session_id: session.id,
+          observer_id: config.assistantId,
           target_id: target,
-          representation: ctx.peer_representation ?? null,
-          peer_card: ctx.peer_card ?? null,
-          summary: includeSummary ? (ctx.summary?.content ?? null) : null,
+          representation: context.peerRepresentation,
+          peer_card: context.peerCard,
+          summary: includeSummary ? context.summary?.content ?? null : null,
           messages,
           message_count: messages.length,
-        };
+        } satisfies SessionContextResult;
       }
 
-      const ctx = await client.workspaces.peers.context(
-        workspaceId,
-        observer,
-        { target: observer === target ? undefined : target }
-      );
+      const context = await assistantPeer.context({ target });
 
       return {
         session_id: null,
-        observer_id: observer,
+        observer_id: config.assistantId,
         target_id: target,
-        representation: ctx.representation ?? null,
-        peer_card: ctx.peer_card ?? null,
+        representation: context.representation,
+        peer_card: context.peerCard,
         summary: null,
         messages: [],
         message_count: 0,
-      };
+      } satisfies SessionContextResult;
     },
   });
 }
@@ -212,30 +182,33 @@ export function honchoContextTool(config: HonchoToolsConfig) {
 /**
  * Query derived conclusions/observations about a user.
  */
-export function honchoSearchConclusionsTool(config: HonchoToolsConfig) {
-  const { client, workspaceId } = config;
-
+function honchoSearchConclusionsTool(options: CreateToolsOptions) {
+  const { config, ensureResources } = options;
   return tool({
     description: TOOL_DESCRIPTIONS.searchConclusions,
     inputSchema: z.object({
       query: z.string().describe(PARAM_DESCRIPTIONS.query),
+      targetId: z
+        .string()
+        .optional()
+        .describe(PARAM_DESCRIPTIONS.targetPeerId),
       limit: z
         .number()
         .optional()
         .default(DEFAULTS.conclusionTopK)
         .describe(PARAM_DESCRIPTIONS.limit),
     }),
-    execute: async ({ query, limit }) => {
-      const results = await client.workspaces.conclusions.query(
-        workspaceId,
-        { query, top_k: limit }
-      );
+    execute: async ({ query, targetId, limit }) => {
+      const { assistantPeer } = await ensureResources();
+      const results = await assistantPeer
+        .conclusionsOf(targetId ?? config.userId)
+        .query(query, limit);
       return {
         results: results.map((c) => ({
           content: c.content,
-          observed_id: c.observed_id,
-          observer_id: c.observer_id,
-          created_at: c.created_at,
+          observed_id: c.observedId,
+          observer_id: c.observerId,
+          created_at: c.createdAt,
         })),
         count: results.length,
       };
@@ -246,28 +219,23 @@ export function honchoSearchConclusionsTool(config: HonchoToolsConfig) {
 /**
  * Get a comprehensive representation of what is known about a user.
  */
-export function honchoGetRepresentationTool(config: HonchoToolsConfig) {
-  const { client, workspaceId, defaultPeerId } = config;
-
+function honchoGetRepresentationTool(options: CreateToolsOptions) {
+  const { config, ensureResources } = options;
   return tool({
     description: TOOL_DESCRIPTIONS.getRepresentation,
     inputSchema: z.object({
-      peerId: z
+      targetId: z
         .string()
         .optional()
-        .describe(PARAM_DESCRIPTIONS.peerId),
+        .describe(PARAM_DESCRIPTIONS.targetPeerId),
     }),
-    execute: async ({ peerId }) => {
-      const pid = peerId ?? defaultPeerId;
-      if (!pid)
-        throw new Error("peerId is required for honcho_get_representation");
-
-      const response = await client.workspaces.peers.representation(
-        workspaceId,
-        pid,
-        {}
-      );
-      return { representation: response.representation };
+    execute: async ({ targetId }) => {
+      const { assistantPeer, session } = await ensureResources();
+      const representation = await assistantPeer.representation({
+        target: targetId ?? config.userId,
+        session,
+      });
+      return { representation };
     },
   });
 }
@@ -275,41 +243,26 @@ export function honchoGetRepresentationTool(config: HonchoToolsConfig) {
 /**
  * Save an observation or conclusion about a user.
  */
-export function honchoSaveConclusionTool(config: HonchoToolsConfig) {
-  const { client, workspaceId, defaultPeerId, defaultObserverPeerId, defaultSessionId } = config;
-
+function honchoSaveConclusionTool(options: CreateToolsOptions) {
+  const { config, ensureResources } = options;
   return tool({
     description: TOOL_DESCRIPTIONS.saveConclusion,
     inputSchema: z.object({
       content: z.string().describe(PARAM_DESCRIPTIONS.content),
-      observedId: z
+      targetId: z
         .string()
         .optional()
-        .describe(PARAM_DESCRIPTIONS.observedId),
-      observerId: z
-        .string()
-        .optional()
-        .describe(PARAM_DESCRIPTIONS.observerId),
-      sessionId: z
-        .string()
-        .optional()
-        .describe(PARAM_DESCRIPTIONS.sessionId),
+        .describe(PARAM_DESCRIPTIONS.targetPeerId),
     }),
-    execute: async ({ content, observedId, observerId, sessionId }) => {
-      const observed = observedId ?? defaultPeerId;
-      const observer = observerId ?? defaultObserverPeerId;
-      const session = sessionId ?? defaultSessionId;
-      if (!observed)
-        throw new Error("observedId is required for honcho_save_conclusion");
-      if (!observer)
-        throw new Error("observerId is required for honcho_save_conclusion");
-      if (!session)
-        throw new Error("sessionId is required for honcho_save_conclusion");
+    execute: async ({ content, targetId }) => {
+      const { assistantPeer, session } = await ensureResources();
+      const results = await assistantPeer
+        .conclusionsOf(targetId ?? config.userId)
+        .create({
+          content,
+          sessionId: session?.id ?? config.sessionId,
+        });
 
-      const results = await client.workspaces.conclusions.create(
-        workspaceId,
-        { conclusions: [{ content, observed_id: observed, observer_id: observer, session_id: session }] }
-      );
       return { success: true, id: results[0]?.id ?? "" };
     },
   });
@@ -327,13 +280,30 @@ export function honchoSaveConclusionTool(config: HonchoToolsConfig) {
  * });
  * ```
  */
-export function honchoTools(config: HonchoToolsConfig) {
+export function createTools(options: CreateToolsOptions) {
   return {
-    honcho_chat: honchoChatTool(config),
-    honcho_context: honchoContextTool(config),
-    honcho_search: honchoSearchTool(config),
-    honcho_search_conclusions: honchoSearchConclusionsTool(config),
-    honcho_get_representation: honchoGetRepresentationTool(config),
-    honcho_save_conclusion: honchoSaveConclusionTool(config),
+    honcho_chat: honchoChatTool(options),
+    honcho_context: honchoContextTool(options),
+    honcho_search: honchoSearchTool(options),
+    honcho_search_conclusions: honchoSearchConclusionsTool(options),
+    honcho_get_representation: honchoGetRepresentationTool(options),
+    honcho_save_conclusion: honchoSaveConclusionTool(options),
+  };
+}
+
+export function resolveToolsConfig(config: HonchoToolsConfig): ResolvedToolsConfig {
+  if (!config.userId || config.userId.trim().length === 0) {
+    throw new Error("tools() requires userId (or defaultUserId in createHoncho).");
+  }
+
+  const assistantId = (config.assistantId ?? DEFAULTS.assistantPeerId).trim();
+  if (!assistantId) {
+    throw new Error("assistantId must be a non-empty string.");
+  }
+
+  return {
+    userId: config.userId.trim(),
+    sessionId: config.sessionId ?? undefined,
+    assistantId,
   };
 }

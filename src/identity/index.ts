@@ -1,4 +1,4 @@
-import type Honcho from "@honcho-ai/core";
+import type { Honcho } from "@honcho-ai/sdk";
 import { createClient } from "../shared/context.js";
 import type { HonchoProviderOptions } from "../types.js";
 
@@ -151,18 +151,11 @@ export async function createPeerIdentity(
   const { provider, peerId } = options;
   const targetPeerId = options.targetPeerId ?? null;
   const client = createClient(provider);
-  const workspaceId = provider.workspaceId;
-
-  // Ensure workspace and peer(s) exist
-  await client.workspaces.getOrCreate({ id: workspaceId });
-  await client.workspaces.peers.getOrCreate(workspaceId, { id: peerId });
+  const workspaceId = client.workspaceId;
+  const observerPeer = await client.peer(peerId);
   if (targetPeerId) {
-    await client.workspaces.peers.getOrCreate(workspaceId, {
-      id: targetPeerId,
-    });
+    await client.peer(targetPeerId);
   }
-
-  const cardParams = targetPeerId ? { target: targetPeerId } : {};
 
   const identity: PeerIdentity = {
     client,
@@ -171,22 +164,13 @@ export async function createPeerIdentity(
     targetPeerId,
 
     async read() {
-      const response = await client.workspaces.peers
-        .card(workspaceId, peerId, cardParams)
-        .catch(() => ({ peer_card: null }));
-      return response.peer_card ?? [];
+      return (await observerPeer.getCard(targetPeerId ?? undefined)) ?? [];
     },
 
     async replace(entries) {
-      const response = await client.workspaces.peers.setCard(
-        workspaceId,
-        peerId,
-        {
-          peer_card: entries,
-          target: targetPeerId ?? undefined,
-        }
+      return (
+        (await observerPeer.setCard(entries, targetPeerId ?? undefined)) ?? entries
       );
-      return response.peer_card ?? entries;
     },
 
     async append(entries) {

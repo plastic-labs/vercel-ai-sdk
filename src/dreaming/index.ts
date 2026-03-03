@@ -1,4 +1,4 @@
-import type Honcho from "@honcho-ai/core";
+import type { Honcho } from "@honcho-ai/sdk";
 import { createClient } from "../shared/context.js";
 import type { HonchoProviderOptions } from "../types.js";
 
@@ -165,21 +165,19 @@ export async function createDreamingAgent(
   } = options;
   const observedPeerId = options.observedPeerId ?? observerPeerId;
   const client = createClient(provider);
-  const workspaceId = provider.workspaceId;
-
-  // Ensure workspace and peers exist
-  await client.workspaces.getOrCreate({ id: workspaceId });
-  await Promise.all([
-    client.workspaces.peers.getOrCreate(workspaceId, { id: observerPeerId }),
+  const workspaceId = client.workspaceId;
+  const observerPeer = await client.peer(observerPeerId);
+  const observedPeer =
     observedPeerId !== observerPeerId
-      ? client.workspaces.peers.getOrCreate(workspaceId, { id: observedPeerId })
-      : Promise.resolve(),
-  ]);
+      ? await client.peer(observedPeerId)
+      : observerPeer;
 
-  // Register webhook if provided
+  // Register webhook if provided (best effort).
   if (options.webhookUrl) {
-    await client.workspaces.webhooks
-      .getOrCreate(workspaceId, { url: options.webhookUrl })
+    await client.http
+      .post<{ id: string; url: string }>(`/v3/workspaces/${workspaceId}/webhooks`, {
+        body: { url: options.webhookUrl },
+      })
       .catch(() => {});
   }
 
@@ -191,27 +189,26 @@ export async function createDreamingAgent(
     sessionId,
 
     async dream() {
-      await client.workspaces.scheduleDream(workspaceId, {
-        dream_type: "omni",
+      await client.scheduleDream({
         observer: observerPeerId,
         observed: observedPeerId,
-        session_id: sessionId,
+        session: sessionId,
       });
     },
 
     async getStatus() {
-      const status = await client.workspaces.queue.status(workspaceId, {
-        observer_id: observerPeerId,
-        session_id: sessionId,
+      const status = await client.queueStatus({
+        observer: observerPeerId,
+        session: sessionId,
       });
 
       return {
-        pending: status.pending_work_units,
-        inProgress: status.in_progress_work_units,
-        completed: status.completed_work_units,
-        total: status.total_work_units,
+        pending: status.pendingWorkUnits,
+        inProgress: status.inProgressWorkUnits,
+        completed: status.completedWorkUnits,
+        total: status.totalWorkUnits,
         isActive:
-          status.pending_work_units > 0 || status.in_progress_work_units > 0,
+          status.pendingWorkUnits > 0 || status.inProgressWorkUnits > 0,
       };
     },
 
@@ -235,17 +232,12 @@ export async function createDreamingAgent(
 
       const results = await Promise.all(
         activeQueries.map(async (query) => {
-          const response = await client.workspaces.peers.chat(
-            workspaceId,
-            observerPeerId,
-            {
-              query,
-              target: observedPeerId !== observerPeerId ? observedPeerId : undefined,
-              session_id: sessionId,
-            }
-          );
+          const insight = await observerPeer.chat(query, {
+            target: observedPeerId !== observerPeerId ? observedPeer : undefined,
+            session: sessionId,
+          });
 
-          return { query, insight: response.content };
+          return { query, insight: insight ?? "" };
         })
       );
 
@@ -262,44 +254,38 @@ export async function createDreamingAgent(
     },
 
     async ask(query) {
-      const response = await client.workspaces.peers.chat(
-        workspaceId,
-        observerPeerId,
-        {
-          query,
-          target: observedPeerId !== observerPeerId ? observedPeerId : undefined,
-          session_id: sessionId,
-        }
-      );
-      return response.content;
+      const response = await observerPeer.chat(query, {
+        target: observedPeerId !== observerPeerId ? observedPeer : undefined,
+        session: sessionId,
+      });
+      return response ?? "";
     },
 
     async registerWebhook(url) {
-      const endpoint = await client.workspaces.webhooks.getOrCreate(
-        workspaceId,
-        { url }
+      const endpoint = await client.http.post<{ id: string; url: string }>(
+        `/v3/workspaces/${workspaceId}/webhooks`,
+        { body: { url } }
       );
       return { id: endpoint.id, url: endpoint.url };
     },
 
     async getRecentConclusions(since, limit = 20) {
-      const conclusions = await client.workspaces.conclusions.list(
-        workspaceId,
-        { size: limit }
-      );
+      const conclusions = await observerPeer
+        .conclusionsOf(observedPeer)
+        .list({ size: limit, session: sessionId });
 
-      let items = conclusions.items ?? [];
+      let items = conclusions.items;
 
       if (since) {
         const sinceDate = new Date(since);
         items = items.filter(
-          (c) => new Date(c.created_at) > sinceDate
+          (c) => new Date(c.createdAt) > sinceDate
         );
       }
 
       return items.map((c) => ({
         content: c.content,
-        created_at: c.created_at,
+        created_at: c.createdAt,
       }));
     },
   };

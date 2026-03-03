@@ -6,7 +6,6 @@ export default defineConfig({
     "src/ai-sdk/index.ts",
     "src/openai/index.ts",
     "src/mastra/index.ts",
-    "src/multi-agent/index.ts",
     "src/dreaming/index.ts",
     "src/identity/index.ts",
   ],
