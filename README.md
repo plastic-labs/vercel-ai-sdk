@@ -17,22 +17,11 @@ HONCHO_API_KEY=...
 HONCHO_WORKSPACE_ID=...
 ```
 
-`createHoncho()` reads both values from env.  
-If `workspaceId` is missing in both options and env, it throws immediately by default.
+`createHoncho()` reads API key/workspace from options and env.  
+If workspace is missing in both, it implicitly falls back to `"vercel-ai-sdk"` (with a one-time warning).
 
-You can opt into fallback workspace + default IDs:
-
-```ts
-const honcho = createHoncho({
-  allowDefaultWorkspace: true,     // workspace fallback: "default"
-  // optional overrides:
-  // defaultUserId: "user",
-  // defaultAssistantId: "assistant",
-  // defaultSessionId: "session",
-});
-```
-
-When defaults are enabled, middleware/tools can be called with no args:
+Plug-and-play works with no explicit IDs. If `userId` or `sessionId` is omitted,
+the provider lazily generates stable IDs for that provider instance:
 
 ```ts
 const { text } = await generateText({
@@ -44,12 +33,22 @@ const { text } = await generateText({
 });
 ```
 
-Default IDs in plug-and-play mode:
-- `userId`: `"user"`
-- `assistantId`: `"assistant"`
-- `sessionId`: `"session"`
+You can still set explicit provider defaults for deterministic IDs:
 
-Override per call when needed, or disable session behavior for one call with `sessionId: null`.
+```ts
+const honcho = createHoncho({
+  defaultUserId: "user",
+  defaultAssistantId: "assistant",
+  defaultSessionId: "session",
+});
+```
+
+Resolution behavior:
+- `assistantId` defaults to `"assistant"`
+- missing `userId` lazily generates a provider-scoped user ID
+- missing `sessionId` lazily generates a provider-scoped session ID
+
+Override per call when needed, or disable session behavior with `sessionId: null`.
 
 ## Quick Start
 
@@ -62,16 +61,19 @@ const honcho = createHoncho();
 
 const { text } = await generateText({
   model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({ userId: "user-123" }),
+  middleware: honcho.middleware(),
   prompt: "What should I focus on today?",
 });
 ```
 
-This injects Honcho context about `user-123` (representation + peer card) into the system prompt.
+This injects Honcho context using lazily generated peer/session IDs.
+For deterministic identity/threading, pass explicit IDs or provider defaults.
 
 ## Add Persistence
 
-Add `sessionId` to enable session summary/history retrieval and message persistence:
+Set `sessionId` when you want explicit thread boundaries.
+Session mode is active by default (auto-generated when omitted), and can be
+disabled per call with `sessionId: null`:
 
 ```ts
 const { text } = await generateText({
@@ -84,7 +86,7 @@ const { text } = await generateText({
 });
 ```
 
-With `sessionId`:
+With session mode active:
 - output is always persisted as `assistantId` (default: `"assistant"`)
 - input is persisted when `persistInput` is `true` (default)
 

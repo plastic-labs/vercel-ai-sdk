@@ -4,15 +4,13 @@ import type { SessionContext } from "@honcho-ai/sdk";
  * Configuration for createHoncho().
  *
  * Most callers can use `createHoncho()` with no arguments and rely on
- * `HONCHO_API_KEY` + `HONCHO_WORKSPACE_ID`.
+ * `HONCHO_API_KEY` plus implicit workspace fallback.
  */
 export interface HonchoProviderOptions {
   /** Honcho API key. Falls back to HONCHO_API_KEY env var. */
   apiKey?: string;
   /** Workspace ID. Falls back to HONCHO_WORKSPACE_ID env var. */
   workspaceId?: string;
-  /** Allow workspace fallback to "default" when env/option is missing. */
-  allowDefaultWorkspace?: boolean;
   /** Default user peer ID for middleware/tools/send when omitted. */
   defaultUserId?: string;
   /** Default assistant peer ID for middleware/tools when omitted. */

@@ -59,19 +59,16 @@ export type { HonchoMiddlewareConfig, HonchoToolsConfig, HonchoSendConfig };
 export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvider {
   const client = createClient(options);
   const cache = new Map<string, CacheEntry>();
-  const usePlugAndPlayDefaults =
-    options.allowDefaultWorkspace ||
-    options.defaultUserId != null ||
-    options.defaultSessionId != null ||
-    options.defaultAssistantId != null;
+  let generatedUserId: string | undefined;
+  let generatedSessionId: string | undefined;
+  let hasWarnedGeneratedUserId = false;
+  let hasWarnedGeneratedSessionId = false;
 
   const providerDefaults: ProviderDefaults = {
     userId:
       options.defaultUserId != null
         ? normalizeRequiredId("defaultUserId", options.defaultUserId)
-        : usePlugAndPlayDefaults
-          ? "user"
-          : undefined,
+        : undefined,
     assistantId: normalizeRequiredId(
       "defaultAssistantId",
       options.defaultAssistantId ?? DEFAULTS.assistantPeerId
@@ -79,9 +76,7 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
     sessionId:
       options.defaultSessionId != null
         ? normalizeRequiredId("defaultSessionId", options.defaultSessionId)
-        : usePlugAndPlayDefaults
-          ? "session"
-          : undefined,
+        : undefined,
   };
 
   const getCacheKey = ({ userId, assistantId, sessionId }: CacheKeyConfig): string =>
@@ -97,14 +92,56 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
     return created;
   };
 
+  const getGeneratedUserId = (): string => {
+    generatedUserId ??= createGeneratedId("user");
+    if (!hasWarnedGeneratedUserId) {
+      console.warn(
+        `[honcho] No userId provided. Using generated userId "${generatedUserId}". Set userId/defaultUserId for stable cross-request memory.`
+      );
+      hasWarnedGeneratedUserId = true;
+    }
+    return generatedUserId;
+  };
+
+  const getGeneratedSessionId = (): string => {
+    generatedSessionId ??= createGeneratedId("session");
+    if (!hasWarnedGeneratedSessionId) {
+      console.warn(
+        `[honcho] No sessionId provided. Using generated sessionId "${generatedSessionId}". Set sessionId/defaultSessionId to control thread boundaries, or pass sessionId: null to disable session mode.`
+      );
+      hasWarnedGeneratedSessionId = true;
+    }
+    return generatedSessionId;
+  };
+
+  const resolveUserId = (value: string | undefined): string => {
+    if (value != null) {
+      return normalizeRequiredId("userId", value);
+    }
+
+    if (providerDefaults.userId) {
+      return providerDefaults.userId;
+    }
+
+    return getGeneratedUserId();
+  };
+
   const resolveSessionId = (
     value: string | null | undefined
   ): string | undefined => {
-    if (value === null) return undefined;
-    const candidate = value ?? providerDefaults.sessionId;
-    if (!candidate) return undefined;
-    const normalized = candidate.trim();
-    return normalized.length > 0 ? normalized : undefined;
+    if (value === null) {
+      return undefined;
+    }
+
+    if (value !== undefined) {
+      return normalizeRequiredId("sessionId", value);
+    }
+
+    if (providerDefaults.sessionId) {
+      return providerDefaults.sessionId;
+    }
+
+    return getGeneratedSessionId();
   };
 
   const resolveCacheKeyConfig = (
@@ -114,16 +151,13 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
       sessionId?: string | null;
     }
   ): CacheKeyConfig => ({
-    userId: normalizeRequiredId(
-      "userId",
-      config?.userId ?? providerDefaults.userId
-    ),
-    assistantId: normalizeRequiredId(
-      "assistantId",
-      config?.assistantId ?? providerDefaults.assistantId
-    ),
-    sessionId: resolveSessionId(config?.sessionId),
-  });
+      userId: resolveUserId(config?.userId),
+      assistantId: normalizeRequiredId(
+        "assistantId",
+        config?.assistantId ?? providerDefaults.assistantId
+      ),
+      sessionId: resolveSessionId(config?.sessionId),
+    });
 
   const ensureResources = async (
     config: CacheKeyConfig,
@@ -231,9 +265,6 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
 
     send: async ({ userId, sessionId, content }: HonchoSendConfig) => {
       const resolved = resolveCacheKeyConfig({ userId, sessionId });
-      if (!resolved.sessionId) {
-        throw new Error("send() requires a sessionId (or defaultSessionId).");
-      }
 
       const key = getCacheKey({
         userId: resolved.userId,
@@ -245,6 +276,9 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
       entry.userPeerPromise ??= client.peer(resolved.userId, {
         configuration: { observeMe: true },
       });
+      if (!resolved.sessionId) {
+        throw new Error("send() requires session mode. Omit sessionId to auto-generate, or pass a concrete value.");
+      }
       entry.sessionPromise ??= client.session(resolved.sessionId);
 
       const [userPeer, session] = await Promise.all([
@@ -272,4 +306,13 @@ function normalizeRequiredId(fieldName: string, value: string | undefined): stri
     throw new Error(`${fieldName} must be a non-empty string.`);
   }
   return normalized;
+}
+
+function createGeneratedId(prefix: "user" | "session"): string {
+  const fromCrypto = globalThis.crypto?.randomUUID?.();
+  const suffix =
+    typeof fromCrypto === "string"
+      ? fromCrypto.split("-")[0]
+      : Math.random().toString(36).slice(2, 10);
+  return `${prefix}-${suffix}`;
 }
