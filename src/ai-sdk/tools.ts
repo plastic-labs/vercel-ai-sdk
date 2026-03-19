@@ -275,7 +275,7 @@ function honchoSaveConclusionTool(options: CreateToolsOptions) {
  * ```ts
  * const result = await generateText({
  *   model: openai("gpt-4o"),
- *   tools: honchoTools({ client, workspaceId, defaultPeerId: "user-123" }),
+ *   tools: honcho.tools({ userId: "user-123", sessionId: "chat-456" }),
  *   prompt: "What did we talk about last week?",
  * });
  * ```

@@ -96,7 +96,7 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
     generatedUserId ??= createGeneratedId("user");
     if (!hasWarnedGeneratedUserId) {
       console.warn(
-        `[honcho] No userId provided. Using generated userId "${generatedUserId}". Set userId/defaultUserId for stable cross-request memory.`
+        `[honcho] No userId provided. Using generated userId "${generatedUserId}". This is best suited to local or single-user flows. If one provider instance serves multiple users, pass userId/defaultUserId explicitly so requests do not share memory.`
       );
       hasWarnedGeneratedUserId = true;
     }
@@ -107,7 +107,7 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
     generatedSessionId ??= createGeneratedId("session");
     if (!hasWarnedGeneratedSessionId) {
       console.warn(
-        `[honcho] No sessionId provided. Using generated sessionId "${generatedSessionId}". Set sessionId/defaultSessionId to control thread boundaries, or pass sessionId: null to disable session mode.`
+        `[honcho] No sessionId provided. Using generated sessionId "${generatedSessionId}". This is best suited to local or single-thread flows. If one provider instance serves many conversations, pass sessionId/defaultSessionId explicitly to avoid sharing a thread, or pass sessionId: null to disable session mode.`
       );
       hasWarnedGeneratedSessionId = true;
     }

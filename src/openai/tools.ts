@@ -86,7 +86,7 @@ function parseIntegerArg(
  * import OpenAI from "openai";
  *
  * const openai = new OpenAI();
- * const honcho = honchoOpenAITools({ client, workspaceId, defaultPeerId: "user-123" });
+ * const honcho = honchoOpenAITools({ client, defaultPeerId: "user-123" });
  *
  * const response = await openai.chat.completions.create({
  *   model: "gpt-4o",
@@ -134,6 +134,14 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
           properties: {
             query: { type: "string", description: PARAM_DESCRIPTIONS.query },
             peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
+            sessionId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.sessionId,
+            },
           },
           required: ["query"],
         },
@@ -198,6 +206,11 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
           type: "object",
           properties: {
             query: { type: "string", description: PARAM_DESCRIPTIONS.query },
+            peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
             limit: { type: "number", description: PARAM_DESCRIPTIONS.limit },
           },
           required: ["query"],
@@ -213,6 +226,14 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
           type: "object",
           properties: {
             peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
+            sessionId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.sessionId,
+            },
           },
           required: [],
         },

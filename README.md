@@ -20,20 +20,15 @@ HONCHO_WORKSPACE_ID=...
 `createHoncho()` reads API key/workspace from options and env.  
 If workspace is missing in both, it implicitly falls back to `"vercel-ai-sdk"` (with a one-time warning).
 
-Plug-and-play works with no explicit IDs. If `userId` or `sessionId` is omitted,
-the provider lazily generates stable IDs for that provider instance:
+If `userId` or `sessionId` is omitted, the provider lazily generates IDs for that
+provider instance.
 
-```ts
-const { text } = await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware(),
-  tools: honcho.tools(),
-  maxSteps: 3,
-  prompt: "What should I focus on today?",
-});
-```
+This is convenient for local scripts, demos, and single-user flows. For server apps
+or any setup where one provider instance may handle many users or conversations,
+pass `userId` and `sessionId` explicitly per request so memory does not bleed across
+requests.
 
-You can still set explicit provider defaults for deterministic IDs:
+You can also set explicit provider defaults for deterministic IDs:
 
 ```ts
 const honcho = createHoncho({
@@ -57,17 +52,40 @@ import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { createHoncho } from "@honcho-ai/ai-sdk";
 
+const honcho = createHoncho({
+  defaultAssistantId: "assistant",
+});
+
+const { text } = await generateText({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    userId: request.user.id,
+    sessionId: request.chatId,
+  }),
+  prompt: "What should I focus on today?",
+});
+```
+
+This is the recommended pattern for apps: keep the assistant identity stable, and
+pass `userId` plus `sessionId` from request context.
+
+### Local Scripts / Single-User Zero-Config
+
+```ts
 const honcho = createHoncho();
 
 const { text } = await generateText({
   model: openai("gpt-4o-mini"),
   middleware: honcho.middleware(),
+  tools: honcho.tools(),
+  maxSteps: 3,
   prompt: "What should I focus on today?",
 });
 ```
 
-This injects Honcho context using lazily generated peer/session IDs.
-For deterministic identity/threading, pass explicit IDs or provider defaults.
+This uses generated IDs scoped to that provider instance. It is fine for local
+experiments and single-user flows, but not the safest default for multi-user server
+traffic.
 
 ## Add Persistence
 
