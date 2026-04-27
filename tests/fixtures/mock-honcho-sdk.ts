@@ -1,13 +1,19 @@
 import { vi } from 'vitest';
 
+export interface MockConclusions {
+  query: ReturnType<typeof vi.fn>;
+  create: ReturnType<typeof vi.fn>;
+}
+
 export interface MockPeer {
   id: string;
   workspaceId: string;
   chat: ReturnType<typeof vi.fn>;
   search: ReturnType<typeof vi.fn>;
-  getContext: ReturnType<typeof vi.fn>;
+  context: ReturnType<typeof vi.fn>;
   representation: ReturnType<typeof vi.fn>;
   message: ReturnType<typeof vi.fn>;
+  conclusionsOf: ReturnType<typeof vi.fn>;
 }
 
 export interface MockSession {
@@ -51,7 +57,7 @@ export function createMockPeer(
     workspaceId: overrides.workspaceId ?? 'mock-workspace',
     chat: overrides.chat ?? vi.fn(async () => ''),
     search: overrides.search ?? vi.fn(async () => []),
-    getContext: overrides.getContext ?? vi.fn(async () => ({
+    context: overrides.context ?? vi.fn(async () => ({
       peerId: id,
       targetId: id,
       representation: null,
@@ -61,6 +67,10 @@ export function createMockPeer(
     message: overrides.message ?? vi.fn((content: string) => ({
       peerId: id,
       content,
+    })),
+    conclusionsOf: overrides.conclusionsOf ?? vi.fn((_targetId: string) => ({
+      query: vi.fn(async () => []),
+      create: vi.fn(async () => undefined),
     })),
   };
 }
