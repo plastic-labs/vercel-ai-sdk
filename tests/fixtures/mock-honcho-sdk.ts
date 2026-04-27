@@ -1,10 +1,5 @@
 import { vi } from 'vitest';
 
-export interface MockConclusions {
-  query: ReturnType<typeof vi.fn>;
-  create: ReturnType<typeof vi.fn>;
-}
-
 export interface MockPeer {
   id: string;
   workspaceId: string;
@@ -140,16 +135,14 @@ export function createMockSession(
 
 export interface MockHonchoOptions {
   workspaceId?: string;
-  peers?: Map<string, MockPeer>;
-  sessions?: Map<string, MockSession>;
 }
 
 export function createMockHonchoClient(
   options: MockHonchoOptions = {},
 ): MockHonchoClient {
   const workspaceId = options.workspaceId ?? 'mock-workspace';
-  const peers = options.peers ?? new Map<string, MockPeer>();
-  const sessions = options.sessions ?? new Map<string, MockSession>();
+  const peers = new Map<string, MockPeer>();
+  const sessions = new Map<string, MockSession>();
 
   return {
     workspaceId,
@@ -174,9 +167,6 @@ export function createMockHonchoClient(
 
 export function mockHonchoModule() {
   return {
-    Honcho: vi.fn().mockImplementation((opts: { workspaceId?: string } = {}) =>
-      createMockHonchoClient({ workspaceId: opts.workspaceId }),
-    ),
     SessionContext: MockSessionContext,
   };
 }

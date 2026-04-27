@@ -10,9 +10,9 @@ Vitest scaffold for `@honcho-ai/ai-sdk`. Test cases land in Task 5 (spine) and T
 
 ## Conventions
 
-- Gap-skipped tests use `it.todo('case name')` with a one-line `// gap: PR #2 doesn't implement X yet` comment so the missing surface is greppable.
 - Keep spine cases pure — no `process.env`, no real timers, no network.
 - E2E cases must use `nanoidNamespace('peer')` / `nanoidNamespace('session')` so concurrent runs don't collide on shared workspace IDs.
+- Gap-skipped tests (when added) use `it.todo('case name')` with a one-line `// gap: PR #2 doesn't implement X yet` comment so the missing surface is greppable.
 
 ## Running
 
