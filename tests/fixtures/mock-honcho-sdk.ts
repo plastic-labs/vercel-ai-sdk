@@ -24,11 +24,52 @@ export interface MockSession {
   addPeers: ReturnType<typeof vi.fn>;
 }
 
-export interface MockSessionContext {
+export interface MockMessage {
+  peerId: string;
+  content: string;
+}
+
+export interface MockSummary {
+  content: string;
+}
+
+export class MockSessionContext {
   sessionId: string;
-  messages: unknown[];
-  toOpenAI: ReturnType<typeof vi.fn>;
-  toAnthropic: ReturnType<typeof vi.fn>;
+  messages: MockMessage[];
+  summary: MockSummary | null;
+  peerRepresentation: string | null;
+  peerCard: string[] | null;
+
+  constructor(
+    sessionId: string,
+    messages: MockMessage[] = [],
+    summary: MockSummary | null = null,
+    peerRepresentation: string | null = null,
+    peerCard: string[] | null = null,
+  ) {
+    this.sessionId = sessionId;
+    this.messages = messages;
+    this.summary = summary;
+    this.peerRepresentation = peerRepresentation;
+    this.peerCard = peerCard;
+  }
+
+  toOpenAI(assistant: string | { id: string }): Array<{ role: string; content: string; name?: string }> {
+    const assistantId = typeof assistant === 'string' ? assistant : assistant.id;
+    return this.messages.map((m) => ({
+      role: m.peerId === assistantId ? 'assistant' : 'user',
+      name: m.peerId,
+      content: m.content,
+    }));
+  }
+
+  toAnthropic(assistant: string | { id: string }): Array<{ role: string; content: string }> {
+    const assistantId = typeof assistant === 'string' ? assistant : assistant.id;
+    return this.messages.map((m) => ({
+      role: m.peerId === assistantId ? 'assistant' : 'user',
+      content: m.content,
+    }));
+  }
 }
 
 export interface MockHonchoClient {
@@ -37,15 +78,24 @@ export interface MockHonchoClient {
   session: ReturnType<typeof vi.fn>;
 }
 
+export interface MockSessionContextOverrides {
+  sessionId?: string;
+  messages?: MockMessage[];
+  summary?: MockSummary | null;
+  peerRepresentation?: string | null;
+  peerCard?: string[] | null;
+}
+
 export function createMockSessionContext(
-  overrides: Partial<MockSessionContext> = {},
+  overrides: MockSessionContextOverrides = {},
 ): MockSessionContext {
-  return {
-    sessionId: overrides.sessionId ?? 'mock-session',
-    messages: overrides.messages ?? [],
-    toOpenAI: overrides.toOpenAI ?? vi.fn(() => []),
-    toAnthropic: overrides.toAnthropic ?? vi.fn(() => []),
-  };
+  return new MockSessionContext(
+    overrides.sessionId ?? 'mock-session',
+    overrides.messages ?? [],
+    overrides.summary ?? null,
+    overrides.peerRepresentation ?? null,
+    overrides.peerCard ?? null,
+  );
 }
 
 export function createMockPeer(
@@ -127,5 +177,6 @@ export function mockHonchoModule() {
     Honcho: vi.fn().mockImplementation((opts: { workspaceId?: string } = {}) =>
       createMockHonchoClient({ workspaceId: opts.workspaceId }),
     ),
+    SessionContext: MockSessionContext,
   };
 }
