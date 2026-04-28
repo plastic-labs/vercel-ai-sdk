@@ -11,11 +11,11 @@ export interface HonchoProviderOptions {
   apiKey?: string;
   /** Workspace ID. Falls back to HONCHO_WORKSPACE_ID env var. */
   workspaceId?: string;
-  /** Default user peer ID for middleware/tools/send when omitted. */
+  /** Per-call `userId` > this > generated id with warn-once. Setting this suppresses the warning. */
   defaultUserId?: string;
-  /** Default assistant peer ID for middleware/tools when omitted. */
+  /** Per-call `assistantId` > this > `"assistant"`. */
   defaultAssistantId?: string;
-  /** Default session ID for middleware/tools/send when omitted. */
+  /** Per-call `sessionId` > this > generated id with warn-once. Setting this suppresses the warning. */
   defaultSessionId?: string;
   /** Optional API environment selector. */
   environment?: "production" | "local";
@@ -33,9 +33,9 @@ export interface HonchoProviderOptions {
  * Flat middleware config for AI SDK model wrapping.
  */
 export interface HonchoMiddlewareConfig {
-  /** Observed peer (typically the end user). */
+  /** Observed peer. Falls back to `defaultUserId` then a generated id with warn-once. */
   userId?: string;
-  /** Conversation/session/thread identifier. Enables persistence + full context. */
+  /** Session id. `null` opts out; omit to use `defaultSessionId` then a generated id with warn-once. */
   sessionId?: string | null;
   /** AI peer identity generating the response. Defaults to "assistant". */
   assistantId?: string;

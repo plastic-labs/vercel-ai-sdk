@@ -34,18 +34,19 @@ const honcho = createHoncho({
 });
 ```
 
-## Sessions
+## Identities
 
-A session handle represents a conversation thread between a user and an assistant. It manages dual-peer identity -- Honcho tracks who said what, and builds a model of the user from the assistant's perspective.
+Each call passes `userId`, `sessionId`, and (optionally) `assistantId` directly to `honcho.middleware()`. There is no separate session handle to construct -- identity flows in per request.
 
 ```typescript
-const session = honcho.session('session-123', {
-  user: 'user-abc',
-  assistant: 'assistant-xyz',
+honcho.middleware({
+  userId: 'user-abc',
+  sessionId: 'session-123',
+  assistantId: 'assistant-xyz',
 });
 ```
 
-Session handles are synchronous and lightweight. No API calls are made until you use the session's middleware or tools, which lazily initialize backend resources via `ensure()`.
+Backend resources initialize lazily on first use. `assistantId` defaults to `"assistant"`; missing `userId` or `sessionId` lazily generates provider-scoped IDs.
 
 ### Peers
 
@@ -58,7 +59,7 @@ This dual-peer model means Honcho automatically builds a representation of the u
 
 ## Middleware
 
-The session provides middleware compatible with `wrapLanguageModel`. It handles two things automatically:
+`honcho.middleware()` returns middleware compatible with `wrapLanguageModel`. It handles two things automatically:
 
 1. **Before generation** -- fetches context from Honcho (user representation, peer card, session summary, recent messages) and injects it into the system prompt
 2. **After generation** -- persists user and assistant messages back to Honcho with correct peer attribution
@@ -68,8 +69,11 @@ import { wrapLanguageModel, generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 
 const model = wrapLanguageModel({
-  model: anthropic('claude-sonnet-4-20250514'),
-  middleware: session.middleware(),
+  model: anthropic('claude-sonnet-4-6'),
+  middleware: honcho.middleware({
+    userId: 'user-abc',
+    sessionId: 'session-123',
+  }),
 });
 ```
 
@@ -91,12 +95,15 @@ Honcho exposes six tools that the model can invoke during generation to query an
 ```typescript
 const result = await generateText({
   model,
-  tools: session.tools(),
+  tools: honcho.tools({
+    userId: 'user-abc',
+    sessionId: 'session-123',
+  }),
   prompt: 'What patterns have you noticed about me?',
 });
 ```
 
-Tools are pre-bound to the session's peers, so the model doesn't need to specify peer IDs.
+Pass the same `userId` and `sessionId` to `honcho.tools()` so tool calls bind to the same peers as the middleware.
 
 ## Examples
 
@@ -113,19 +120,17 @@ const honcho = createHoncho({
   workspaceId: process.env.HONCHO_WORKSPACE_ID!,
 });
 
-const session = honcho.session('session-123', {
-  user: 'user-abc',
-  assistant: 'assistant-xyz',
-});
+const userId = 'user-abc';
+const sessionId = 'session-123';
 
 const model = wrapLanguageModel({
-  model: anthropic('claude-sonnet-4-20250514'),
-  middleware: session.middleware(),
+  model: anthropic('claude-sonnet-4-6'),
+  middleware: honcho.middleware({ userId, sessionId }),
 });
 
 const { text } = await generateText({
   model,
-  tools: session.tools(),
+  tools: honcho.tools({ userId, sessionId }),
   prompt: 'Based on our conversations, what do I care about most?',
 });
 ```
@@ -143,19 +148,17 @@ const honcho = createHoncho({
   workspaceId: process.env.HONCHO_WORKSPACE_ID!,
 });
 
-const session = honcho.session('session-456', {
-  user: 'user-abc',
-  assistant: 'assistant-xyz',
-});
+const userId = 'user-abc';
+const sessionId = 'session-456';
 
 const model = wrapLanguageModel({
   model: openai('gpt-4o'),
-  middleware: session.middleware(),
+  middleware: honcho.middleware({ userId, sessionId }),
 });
 
 const result = streamText({
   model,
-  tools: session.tools(),
+  tools: honcho.tools({ userId, sessionId }),
   prompt: 'What should we work on next?',
 });
 
@@ -180,19 +183,18 @@ const honcho = createHoncho({
 export async function POST(req: Request) {
   const { messages, sessionId, userId } = await req.json();
 
-  const session = honcho.session(sessionId, {
-    user: userId,
-    assistant: 'my-app',
-  });
-
   const model = wrapLanguageModel({
-    model: anthropic('claude-sonnet-4-20250514'),
-    middleware: session.middleware(),
+    model: anthropic('claude-sonnet-4-6'),
+    middleware: honcho.middleware({
+      userId,
+      sessionId,
+      assistantId: 'my-app',
+    }),
   });
 
   const result = streamText({
     model,
-    tools: session.tools(),
+    tools: honcho.tools({ userId, sessionId, assistantId: 'my-app' }),
     messages,
   });
 
@@ -214,26 +216,23 @@ Each turn follows this lifecycle:
 
 ## Configuration
 
-### Session Options
+### Middleware Options
 
 ```typescript
-const session = honcho.session('session-123', {
-  user: 'user-abc',
-  assistant: 'assistant-xyz',
-}, {
-  context: {
-    tokens: 4096,          // Max tokens for context injection
-    includeSummary: true,  // Include session summary
-    format: customFormatter, // Custom context formatter
-  },
-  persistence: {
-    enabled: true,         // Enable message persistence
-    onError: (err) => {    // Error handler
-      console.error('[honcho]', err);
-    },
+const middleware = honcho.middleware({
+  userId: 'user-abc',
+  sessionId: 'session-123',
+  assistantId: 'assistant-xyz',
+  persistInput: true,
+  injectHistory: true,
+  formatContext: (context) => `<memory>${context.summary}</memory>`,
+  onError: (err) => {
+    console.error('[honcho]', err);
   },
 });
 ```
+
+Pass `sessionId: null` to disable session mode for a single call.
 
 ### Provider Options
 
