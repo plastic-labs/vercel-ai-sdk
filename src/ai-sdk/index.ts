@@ -159,6 +159,17 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
       sessionId: resolveSessionId(config?.sessionId),
     });
 
+  const cachePromise = <T>(
+    factory: () => Promise<T>,
+    reset: () => void
+  ): Promise<T> => {
+    const promise = factory().catch((error) => {
+      reset();
+      throw error;
+    });
+    return promise;
+  };
+
   const ensureResources = async (
     config: CacheKeyConfig,
     requirements: { assistant: boolean; session: boolean }
@@ -166,30 +177,50 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
     const key = getCacheKey(config);
     const entry = getEntry(key);
 
-    entry.userPeerPromise ??= client.peer(config.userId, {
-      configuration: { observeMe: true },
-    });
+    const userPeerPromise = (entry.userPeerPromise ??= cachePromise(
+      () =>
+        client.peer(config.userId, {
+          configuration: { observeMe: true },
+        }),
+      () => {
+        entry.userPeerPromise = undefined;
+      }
+    ));
 
     const needsAssistant = requirements.assistant || Boolean(config.sessionId);
+    let assistantPeerPromise: Promise<Peer> | undefined;
     if (needsAssistant) {
       if (config.assistantId === config.userId) {
-        entry.assistantPeerPromise = entry.userPeerPromise;
+        entry.assistantPeerPromise = userPeerPromise;
+        assistantPeerPromise = userPeerPromise;
       } else {
-        entry.assistantPeerPromise ??= client.peer(config.assistantId, {
-          configuration: { observeMe: false },
-        });
+        assistantPeerPromise = entry.assistantPeerPromise ??= cachePromise(
+          () =>
+            client.peer(config.assistantId, {
+              configuration: { observeMe: false },
+            }),
+          () => {
+            entry.assistantPeerPromise = undefined;
+          }
+        );
       }
     }
 
+    let sessionPromise: Promise<Session> | undefined;
     if (config.sessionId) {
-      entry.sessionPromise ??= client.session(config.sessionId);
+      sessionPromise = entry.sessionPromise ??= cachePromise(
+        () => client.session(config.sessionId!),
+        () => {
+          entry.sessionPromise = undefined;
+        }
+      );
     }
 
     if (config.sessionId && requirements.session) {
-      entry.sessionSetupPromise ??= (async () => {
-        const session = await entry.sessionPromise!;
-        const userPeer = await entry.userPeerPromise!;
-        const assistantPeer = await entry.assistantPeerPromise!;
+      const setupPromise = (entry.sessionSetupPromise ??= (async () => {
+        const session = await sessionPromise!;
+        const userPeer = await userPeerPromise;
+        const assistantPeer = await assistantPeerPromise!;
 
         if (config.userId === config.assistantId) {
           await session.addPeers([[userPeer, { observeMe: true, observeOthers: true }]]);
@@ -203,17 +234,15 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
       })().catch((error) => {
         entry.sessionSetupPromise = undefined;
         throw error;
-      });
+      }));
 
-      await entry.sessionSetupPromise;
+      await setupPromise;
     }
 
     return {
-      userPeer: await entry.userPeerPromise,
-      assistantPeer: entry.assistantPeerPromise
-        ? await entry.assistantPeerPromise
-        : undefined,
-      session: entry.sessionPromise ? await entry.sessionPromise : undefined,
+      userPeer: await userPeerPromise,
+      assistantPeer: assistantPeerPromise ? await assistantPeerPromise : undefined,
+      session: sessionPromise ? await sessionPromise : undefined,
     };
   };
 
@@ -266,27 +295,19 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
     send: async ({ userId, sessionId, content }: HonchoSendConfig) => {
       const resolved = resolveCacheKeyConfig({ userId, sessionId });
 
-      const key = getCacheKey({
-        userId: resolved.userId,
-        assistantId: resolved.assistantId,
-        sessionId: resolved.sessionId,
-      });
-      const entry = getEntry(key);
-
-      entry.userPeerPromise ??= client.peer(resolved.userId, {
-        configuration: { observeMe: true },
-      });
       if (!resolved.sessionId) {
         throw new Error("send() requires session mode. Omit sessionId to auto-generate, or pass a concrete value.");
       }
-      entry.sessionPromise ??= client.session(resolved.sessionId);
 
-      const [userPeer, session] = await Promise.all([
-        entry.userPeerPromise,
-        entry.sessionPromise,
-      ]);
+      const resources = await ensureResources(resolved, {
+        assistant: false,
+        session: true,
+      });
+      const { userPeer, session } = resources;
+      if (!session) {
+        throw new Error("send() failed to resolve session.");
+      }
 
-      await session.addPeers([[userPeer, { observeMe: true, observeOthers: false }]]);
       await session.addMessages(userPeer.message(content));
     },
 
