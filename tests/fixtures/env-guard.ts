@@ -14,9 +14,6 @@ const NETWORK_SKIP_PATTERNS = [
   /fetch failed/i,
 ];
 
-// 5xx and 429 are infra-level flakes (Honcho cold-start, Render restart, rate
-// limit). Treating them as `skip` keeps the harness honest: we did not prove
-// the code wrong, we only failed to reach the server.
 function isTransientNetworkError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const status = (err as { status?: unknown }).status;
