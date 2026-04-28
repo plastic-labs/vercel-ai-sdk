@@ -147,14 +147,18 @@ describe('honcho.tools() spine', () => {
       prompt: 'tell me about u1',
     });
 
-    const totalCalls = session.addMessages.mock.calls.length;
-    expect(totalCalls).toBeLessThanOrEqual(2);
     const allMessages = session.addMessages.mock.calls.flatMap(
       (c) => c[0] as Array<{ peerId: string; content: string }>,
     );
-    const assistantTextSaves = allMessages.filter(
-      (m) => m.peerId === 'a1' && m.content === 'final-answer',
-    );
-    expect(assistantTextSaves).toHaveLength(1);
+
+    const userSaves = allMessages.filter((m) => m.peerId === 'u1');
+    expect(userSaves).toHaveLength(1);
+    expect(userSaves[0]!.content).toBe('tell me about u1');
+
+    const assistantSaves = allMessages.filter((m) => m.peerId === 'a1');
+    expect(assistantSaves).toHaveLength(1);
+    expect(assistantSaves[0]!.content).toBe('final-answer');
+
+    expect(allMessages).toHaveLength(2);
   });
 });
