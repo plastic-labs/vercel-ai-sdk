@@ -11,11 +11,24 @@ export interface HonchoProviderOptions {
   apiKey?: string;
   /** Workspace ID. Falls back to HONCHO_WORKSPACE_ID env var. */
   workspaceId?: string;
-  /** Default user peer ID for middleware/tools/send when omitted. */
+  /**
+   * Default user peer ID for middleware/tools/send when omitted at the
+   * call site. Precedence: per-call `userId` > this default > generated
+   * id with warn-once. Setting this suppresses the generated-id warning.
+   */
   defaultUserId?: string;
-  /** Default assistant peer ID for middleware/tools when omitted. */
+  /**
+   * Default assistant peer ID for middleware/tools when omitted at the
+   * call site. Precedence: per-call `assistantId` > this default >
+   * the literal `"assistant"`.
+   */
   defaultAssistantId?: string;
-  /** Default session ID for middleware/tools/send when omitted. */
+  /**
+   * Default session ID for middleware/tools/send when omitted at the
+   * call site. Precedence: per-call `sessionId` > this default >
+   * generated id with warn-once. Setting this suppresses the
+   * generated-id warning.
+   */
   defaultSessionId?: string;
   /** Optional API environment selector. */
   environment?: "production" | "local";
