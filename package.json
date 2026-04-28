@@ -35,7 +35,9 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --env-file=.env src/test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "tsx --env-file=.env src/test.ts",
     "prepack": "npm run build",
     "prepublishOnly": "npm run typecheck",
     "publish:check": "npm run typecheck && npm pack --dry-run"
@@ -84,8 +86,11 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "nanoid": "^5.1.9",
     "tsup": "^8.5.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
   }
 }
