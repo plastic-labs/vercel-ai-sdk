@@ -40,7 +40,13 @@ export interface HonchoMiddlewareConfig {
    * multiple users.
    */
   userId?: string;
-  /** Conversation/session/thread identifier. Enables persistence + full context. */
+  /**
+   * Conversation/session/thread identifier. Tri-state:
+   * - `string` — explicit session (enables persistence + history injection).
+   * - `null` — explicit opt-out: no session, no persistence, no history.
+   * - `undefined` — falls back to `defaultSessionId`, then to a generated
+   *   id with a warn-once message.
+   */
   sessionId?: string | null;
   /** AI peer identity generating the response. Defaults to "assistant". */
   assistantId?: string;
