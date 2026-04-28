@@ -17,7 +17,5 @@ export default defineConfig({
     "ai",
     "zod",
     "@ai-sdk/provider",
-    "@mastra/core",
-    "@mastra/core/tools",
   ],
 });
