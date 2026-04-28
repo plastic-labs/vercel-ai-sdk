@@ -256,11 +256,17 @@ function honchoSaveConclusionTool(options: CreateToolsOptions) {
     }),
     execute: async ({ content, targetId }) => {
       const { assistantPeer, session } = await ensureResources();
+      const sessionId = session?.id ?? config.sessionId;
+      if (!sessionId) {
+        throw new Error(
+          "honcho_save_conclusion requires a sessionId. Pass sessionId in honcho.tools(config) or set defaultSessionId on createHoncho()."
+        );
+      }
       const results = await assistantPeer
         .conclusionsOf(targetId ?? config.userId)
         .create({
           content,
-          sessionId: session?.id ?? config.sessionId,
+          sessionId,
         });
 
       return { success: true, id: results[0]?.id ?? "" };
