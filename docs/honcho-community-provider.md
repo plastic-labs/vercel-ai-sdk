@@ -69,7 +69,7 @@ import { wrapLanguageModel, generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 
 const model = wrapLanguageModel({
-  model: anthropic('claude-sonnet-4-20250514'),
+  model: anthropic('claude-sonnet-4-6'),
   middleware: honcho.middleware({
     userId: 'user-abc',
     sessionId: 'session-123',
@@ -124,7 +124,7 @@ const userId = 'user-abc';
 const sessionId = 'session-123';
 
 const model = wrapLanguageModel({
-  model: anthropic('claude-sonnet-4-20250514'),
+  model: anthropic('claude-sonnet-4-6'),
   middleware: honcho.middleware({ userId, sessionId }),
 });
 
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
   const { messages, sessionId, userId } = await req.json();
 
   const model = wrapLanguageModel({
-    model: anthropic('claude-sonnet-4-20250514'),
+    model: anthropic('claude-sonnet-4-6'),
     middleware: honcho.middleware({
       userId,
       sessionId,
