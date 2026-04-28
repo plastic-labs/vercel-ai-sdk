@@ -1,4 +1,4 @@
-import type { Honcho } from "@honcho-ai/sdk";
+import type { Honcho, Peer, Session } from "@honcho-ai/sdk";
 import { TOOL_DESCRIPTIONS, PARAM_DESCRIPTIONS, DEFAULTS } from "../shared/descriptions.js";
 
 /**
@@ -103,23 +103,62 @@ function parseIntegerArg(
 export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolExecutor {
   const { client, defaultPeerId, defaultSessionId, defaultObserverPeerId } = config;
 
-  const ensurePeer = async (
-    peerId: string,
-    observeMe: boolean
-  ) => client.peer(peerId, { configuration: { observeMe } });
+  const peerCache = new Map<string, Promise<Peer>>();
+  const sessionCache = new Map<string, Promise<Session>>();
+  const sessionSetupCache = new Map<string, Promise<void>>();
+
+  const cachePromise = <T>(
+    cache: Map<string, Promise<T>>,
+    key: string,
+    factory: () => Promise<T>
+  ): Promise<T> => {
+    const existing = cache.get(key);
+    if (existing) {
+      return existing;
+    }
+    const promise = factory().catch((error) => {
+      cache.delete(key);
+      throw error;
+    });
+    cache.set(key, promise);
+    return promise;
+  };
+
+  const ensurePeer = (peerId: string, observeMe: boolean): Promise<Peer> => {
+    const key = `${peerId}::${observeMe}`;
+    return cachePromise(peerCache, key, () =>
+      client.peer(peerId, { configuration: { observeMe } })
+    );
+  };
+
+  const ensureSession = (sessionId: string): Promise<Session> =>
+    cachePromise(sessionCache, sessionId, () => client.session(sessionId));
 
   const ensureSessionPeers = async (
     sessionId: string,
     userId: string,
     assistantId: string
   ) => {
-    const session = await client.session(sessionId);
+    const session = await ensureSession(sessionId);
     const userPeer = await ensurePeer(userId, true);
     const assistantPeer = await ensurePeer(assistantId, false);
-    await session.addPeers([
-      [userPeer, { observeMe: true, observeOthers: false }],
-      [assistantPeer, { observeMe: false, observeOthers: true }],
-    ]);
+
+    const setupKey = `${sessionId}::${userId}::${assistantId}`;
+    const setupPromise = sessionSetupCache.get(setupKey) ?? (() => {
+      const promise = session
+        .addPeers([
+          [userPeer, { observeMe: true, observeOthers: false }],
+          [assistantPeer, { observeMe: false, observeOthers: true }],
+        ])
+        .catch((error) => {
+          sessionSetupCache.delete(setupKey);
+          throw error;
+        });
+      sessionSetupCache.set(setupKey, promise);
+      return promise;
+    })();
+    await setupPromise;
+
     return { session, userPeer, assistantPeer };
   };
 
