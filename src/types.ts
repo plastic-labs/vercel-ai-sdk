@@ -11,24 +11,11 @@ export interface HonchoProviderOptions {
   apiKey?: string;
   /** Workspace ID. Falls back to HONCHO_WORKSPACE_ID env var. */
   workspaceId?: string;
-  /**
-   * Default user peer ID for middleware/tools/send when omitted at the
-   * call site. Precedence: per-call `userId` > this default > generated
-   * id with warn-once. Setting this suppresses the generated-id warning.
-   */
+  /** Per-call `userId` > this > generated id with warn-once. Setting this suppresses the warning. */
   defaultUserId?: string;
-  /**
-   * Default assistant peer ID for middleware/tools when omitted at the
-   * call site. Precedence: per-call `assistantId` > this default >
-   * the literal `"assistant"`.
-   */
+  /** Per-call `assistantId` > this > `"assistant"`. */
   defaultAssistantId?: string;
-  /**
-   * Default session ID for middleware/tools/send when omitted at the
-   * call site. Precedence: per-call `sessionId` > this default >
-   * generated id with warn-once. Setting this suppresses the
-   * generated-id warning.
-   */
+  /** Per-call `sessionId` > this > generated id with warn-once. Setting this suppresses the warning. */
   defaultSessionId?: string;
   /** Optional API environment selector. */
   environment?: "production" | "local";
@@ -46,20 +33,9 @@ export interface HonchoProviderOptions {
  * Flat middleware config for AI SDK model wrapping.
  */
 export interface HonchoMiddlewareConfig {
-  /**
-   * Observed peer (typically the end user). Optional — falls back to
-   * `defaultUserId` from the provider, then to a generated id with a
-   * warn-once message. Pass explicitly when one provider instance serves
-   * multiple users.
-   */
+  /** Observed peer. Falls back to `defaultUserId` then a generated id with warn-once. */
   userId?: string;
-  /**
-   * Conversation/session/thread identifier. Tri-state:
-   * - `string` — explicit session (enables persistence + history injection).
-   * - `null` — explicit opt-out: no session, no persistence, no history.
-   * - `undefined` — falls back to `defaultSessionId`, then to a generated
-   *   id with a warn-once message.
-   */
+  /** Session id. `null` opts out; omit to use `defaultSessionId` then a generated id with warn-once. */
   sessionId?: string | null;
   /** AI peer identity generating the response. Defaults to "assistant". */
   assistantId?: string;
