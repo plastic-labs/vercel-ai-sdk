@@ -5,7 +5,6 @@ export default defineConfig({
     "src/index.ts",
     "src/ai-sdk/index.ts",
     "src/openai/index.ts",
-    "src/mastra/index.ts",
     "src/identity/index.ts",
   ],
   format: ["esm"],
