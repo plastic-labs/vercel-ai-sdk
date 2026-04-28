@@ -6,6 +6,12 @@ let hasWarnedDefaultWorkspace = false;
 
 /**
  * Resolve workspace ID from options/env with implicit fallback.
+ *
+ * Resolution order: `options.workspaceId` -> `HONCHO_WORKSPACE_ID` env ->
+ * the literal `"vercel-ai-sdk"` constant. The fallback emits a one-time
+ * `console.warn` (warn-once per process) so first-run usage just works.
+ * Production callers should set `workspaceId` or `HONCHO_WORKSPACE_ID`
+ * explicitly to avoid sharing the implicit workspace across projects.
  */
 export function resolveWorkspaceId(options: HonchoProviderOptions = {}): string {
   const workspaceId = options.workspaceId ?? process.env.HONCHO_WORKSPACE_ID;
