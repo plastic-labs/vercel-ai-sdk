@@ -115,15 +115,33 @@ export function createMiddleware({
       const resourcesPromise = ensureResources();
 
       let assistantText = "";
+      let finishReason: string | undefined;
+      let streamErrored = false;
       const stream = result.stream.pipeThrough(
         new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({
           transform(chunk, controller) {
             if (chunk.type === "text-delta") {
               assistantText += chunk.delta;
+            } else if (chunk.type === "finish") {
+              finishReason = chunk.finishReason.unified;
+            } else if (chunk.type === "error") {
+              streamErrored = true;
             }
             controller.enqueue(chunk);
           },
           async flush() {
+            if (streamErrored) {
+              return;
+            }
+            if (
+              finishReason &&
+              finishReason !== "stop" &&
+              finishReason !== "length" &&
+              finishReason !== "tool-calls"
+            ) {
+              return;
+            }
+
             try {
               const { userPeer, assistantPeer, session } = await resourcesPromise;
               if (!assistantPeer || !session) {
