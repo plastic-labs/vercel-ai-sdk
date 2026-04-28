@@ -53,9 +53,9 @@ export interface HonchoMiddlewareConfig {
  * Flat tools config.
  */
 export interface HonchoToolsConfig {
-  /** Observed peer (typically the end user). */
+  /** Observed peer (typically the end user). Falls back to `defaultUserId` then a generated id with warn-once. */
   userId?: string;
-  /** Optional session identifier for scoped retrieval. */
+  /** Session id. `null` opts out of session-scoped retrieval; omit to use `defaultSessionId` then a generated id with warn-once. */
   sessionId?: string | null;
   /** AI peer identity for observer-scoped tools. Defaults to "assistant". */
   assistantId?: string;
@@ -65,7 +65,10 @@ export interface HonchoToolsConfig {
  * Message persistence helper config.
  */
 export interface HonchoSendConfig {
+  /** Peer the message is attributed to. Falls back to `defaultUserId` then a generated id with warn-once. */
   userId?: string;
+  /** Session id. `null` throws (`send()` requires session mode); omit to use `defaultSessionId` then a generated id with warn-once. */
   sessionId?: string | null;
+  /** Message content to persist. */
   content: string;
 }
