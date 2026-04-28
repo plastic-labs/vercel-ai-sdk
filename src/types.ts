@@ -33,7 +33,12 @@ export interface HonchoProviderOptions {
  * Flat middleware config for AI SDK model wrapping.
  */
 export interface HonchoMiddlewareConfig {
-  /** Observed peer (typically the end user). */
+  /**
+   * Observed peer (typically the end user). Optional — falls back to
+   * `defaultUserId` from the provider, then to a generated id with a
+   * warn-once message. Pass explicitly when one provider instance serves
+   * multiple users.
+   */
   userId?: string;
   /** Conversation/session/thread identifier. Enables persistence + full context. */
   sessionId?: string | null;
