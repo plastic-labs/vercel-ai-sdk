@@ -50,15 +50,14 @@ if grep -q '"@honcho/ai-sdk"' package.json; then
 fi
 ```
 
-### Gate: route INTEGRATE / DEBUG / SCAFFOLD
+### Gate: route INTEGRATE / DEBUG
 
 Use **AskUserQuestion**:
 
 - **INTEGRATE** — "I have a Vercel AI SDK app already, add Honcho memory to it." → INTEGRATE path (Phases 1–3, then Phase N).
 - **DEBUG** — "My Honcho + Vercel AI SDK setup is broken; help me triage." → DEBUG path (Phases 1–3, then Phase N).
-- **SCAFFOLD** — "Start a new app pre-wired with Honcho." → exit with the message below.
 
-> SCAFFOLD path is not yet supported (v2 scope). To start a new app pre-wired with Honcho, follow the [README Quick Start](../../README.md), then invoke this skill (INTEGRATE path) once you have a `generateText` / `streamText` call site.
+If neither fits — e.g., the dev wants to start a brand-new app pre-wired with Honcho — point them at the [README Quick Start](../../README.md) and exit. The skill is edit-driven; it doesn't scaffold.
 
 ---
 
