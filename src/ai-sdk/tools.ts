@@ -309,7 +309,15 @@ export function resolveToolsConfig(config: HonchoToolsConfig): ResolvedToolsConf
 
   return {
     userId: config.userId.trim(),
-    sessionId: config.sessionId ?? undefined,
+    sessionId: normalizeSessionId(config.sessionId),
     assistantId,
   };
+}
+
+function normalizeSessionId(value: string | null | undefined): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }

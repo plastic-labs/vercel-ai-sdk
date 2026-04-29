@@ -335,7 +335,7 @@ export function resolveMiddlewareConfig(
 
   return {
     userId: config.userId.trim(),
-    sessionId: config.sessionId ?? undefined,
+    sessionId: normalizeSessionId(config.sessionId),
     assistantId,
     persistInput: config.persistInput ?? true,
     injectHistory: config.injectHistory ?? true,
@@ -344,4 +344,12 @@ export function resolveMiddlewareConfig(
       config.onError ??
       ((error) => console.warn("[honcho] middleware error:", error)),
   };
+}
+
+function normalizeSessionId(value: string | null | undefined): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
