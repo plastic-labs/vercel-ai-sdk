@@ -292,8 +292,8 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
       });
     },
 
-    send: async ({ userId, sessionId, content }: HonchoSendConfig) => {
-      const resolved = resolveCacheKeyConfig({ userId, sessionId });
+    send: async ({ userId, sessionId, assistantId, content }: HonchoSendConfig) => {
+      const resolved = resolveCacheKeyConfig({ userId, assistantId, sessionId });
 
       if (!resolved.sessionId) {
         throw new Error("send() requires session mode. Omit sessionId to auto-generate, or pass a concrete value.");

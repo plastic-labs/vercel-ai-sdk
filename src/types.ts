@@ -69,6 +69,8 @@ export interface HonchoSendConfig {
   userId?: string;
   /** Session id. `null` throws (`send()` requires session mode); omit to use `defaultSessionId` then a generated id with warn-once. */
   sessionId?: string | null;
+  /** AI peer the message is being sent to. Falls back to `defaultAssistantId` then `"assistant"`. Threads through to session setup so multi-peer flows attach the correct assistant. */
+  assistantId?: string;
   /** Message content to persist. */
   content: string;
 }

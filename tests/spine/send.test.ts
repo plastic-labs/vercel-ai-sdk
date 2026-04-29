@@ -60,4 +60,73 @@ describe('honcho.send() spine', () => {
       honcho.send({ userId: 'u1', sessionId: null, content: 'no-session' }),
     ).rejects.toThrow(/session mode/i);
   });
+
+  it('threads explicit assistantId into session setup', async () => {
+    const session = {
+      id: 's1',
+      workspaceId: 'mock-workspace',
+      context: vi.fn(async () => undefined),
+      addMessages: vi.fn(async () => []),
+      addPeers: vi.fn(async () => undefined),
+    };
+    sharedClient.current.session.mockResolvedValue(session);
+
+    const { createHoncho } = await importHoncho();
+    const honcho = createHoncho({ workspaceId: 'mock-workspace' });
+
+    await honcho.send({
+      userId: 'u1',
+      assistantId: 'a2',
+      sessionId: 's1',
+      content: 'hi a2',
+    });
+
+    const peerIds = sharedClient.current.peer.mock.calls.map((c) => c[0]);
+    expect(peerIds).toContain('a2');
+    expect(peerIds).not.toContain('assistant');
+
+    expect(session.addPeers).toHaveBeenCalledTimes(1);
+    const peerArgs = session.addPeers.mock.calls[0]![0] as Array<
+      [{ id: string }, Record<string, unknown>]
+    >;
+    const ids = peerArgs.map((p) => p[0].id).sort();
+    expect(ids).toEqual(['a2', 'u1']);
+  });
+
+  it('shares cache entry with middleware when assistantId matches', async () => {
+    const session = {
+      id: 's1',
+      workspaceId: 'mock-workspace',
+      context: vi.fn(async () => undefined),
+      addMessages: vi.fn(async () => []),
+      addPeers: vi.fn(async () => undefined),
+    };
+    sharedClient.current.session.mockResolvedValue(session);
+
+    const { createHoncho } = await importHoncho();
+    const honcho = createHoncho({ workspaceId: 'mock-workspace' });
+
+    await honcho.send({
+      userId: 'u1',
+      assistantId: 'a2',
+      sessionId: 's1',
+      content: 'hi',
+    });
+
+    honcho.middleware({
+      userId: 'u1',
+      assistantId: 'a2',
+      sessionId: 's1',
+    });
+
+    const u1Calls = sharedClient.current.peer.mock.calls.filter(
+      (c) => c[0] === 'u1',
+    ).length;
+    const a2Calls = sharedClient.current.peer.mock.calls.filter(
+      (c) => c[0] === 'a2',
+    ).length;
+    expect(u1Calls).toBe(1);
+    expect(a2Calls).toBe(1);
+    expect(session.addPeers).toHaveBeenCalledTimes(1);
+  });
 });
