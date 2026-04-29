@@ -130,7 +130,7 @@ async function testMiddleware(honcho: ReturnType<typeof createHoncho>): Promise<
 
   printSection("Middleware (generateText)");
 
-  const { generateText } = await import("ai");
+  const { generateText, wrapLanguageModel } = await import("ai");
   let openai: any;
   try {
     ({ openai } = await import("@ai-sdk/openai"));
@@ -141,21 +141,25 @@ async function testMiddleware(honcho: ReturnType<typeof createHoncho>): Promise<
 
   // Context-only (no session)
   const contextOnly = await generateText({
-    model: openai("gpt-4o-mini"),
-    middleware: honcho.middleware({ userId: USER_ID }),
+    model: wrapLanguageModel({
+      model: openai("gpt-4o-mini"),
+      middleware: honcho.middleware({ userId: USER_ID }),
+    }),
     prompt: "Say hello in one short sentence.",
   });
   console.log("context-only text:", contextOnly.text.slice(0, 120));
 
   // Session + persistence
   const withSession = await generateText({
-    model: openai("gpt-4o-mini"),
-    middleware: honcho.middleware({
-      userId: USER_ID,
-      sessionId: SESSION_ID,
-      assistantId: ASSISTANT_ID,
-      persistInput: true,
-      injectHistory: true,
+    model: wrapLanguageModel({
+      model: openai("gpt-4o-mini"),
+      middleware: honcho.middleware({
+        userId: USER_ID,
+        sessionId: SESSION_ID,
+        assistantId: ASSISTANT_ID,
+        persistInput: true,
+        injectHistory: true,
+      }),
     }),
     prompt: "Give one short productivity suggestion.",
   });
@@ -163,13 +167,15 @@ async function testMiddleware(honcho: ReturnType<typeof createHoncho>): Promise<
 
   // Session + no input persistence
   const noInputPersist = await generateText({
-    model: openai("gpt-4o-mini"),
-    middleware: honcho.middleware({
-      userId: USER_ID,
-      sessionId: SESSION_ID,
-      assistantId: ASSISTANT_ID,
-      persistInput: false,
-      injectHistory: true,
+    model: wrapLanguageModel({
+      model: openai("gpt-4o-mini"),
+      middleware: honcho.middleware({
+        userId: USER_ID,
+        sessionId: SESSION_ID,
+        assistantId: ASSISTANT_ID,
+        persistInput: false,
+        injectHistory: true,
+      }),
     }),
     prompt: "Give one short reflection prompt.",
   });
