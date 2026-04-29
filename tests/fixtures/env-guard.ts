@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 import type { TestContext } from 'vitest';
 
 export function hasHonchoCredentials(): boolean {
-  return Boolean(process.env.HONCHO_API_KEY && process.env.HONCHO_WORKSPACE_ID);
+  return Boolean(process.env.HONCHO_API_KEY);
 }
 
 const NETWORK_SKIP_PATTERNS = [
