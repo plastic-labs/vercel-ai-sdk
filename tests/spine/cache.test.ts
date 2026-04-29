@@ -60,7 +60,13 @@ describe('cache rejection recovery', () => {
     const session = {
       id: 's1',
       workspaceId: 'mock-workspace',
-      context: vi.fn(async () => createMockSessionContext({ sessionId: 's1' })),
+      context: vi.fn(async () =>
+        createMockSessionContext({
+          sessionId: 's1',
+          peerRepresentation: 'recovered-rep',
+          peerCard: ['recovered-fact'],
+        }),
+      ),
       addMessages: vi.fn(async () => []),
       addPeers: vi.fn(async () => undefined),
     };
@@ -127,6 +133,8 @@ describe('cache rejection recovery', () => {
     const result2 = await generateText({ model: model2, prompt: 'q2' });
     expect(result2.text).toBe('second');
     expect(peerCalls).toBeGreaterThanOrEqual(2);
+    expect(captured2.systemContent).toContain('recovered-rep');
+    expect(captured2.systemContent).toContain('recovered-fact');
   });
 
   it('LRU evicts oldest entry when maxCacheEntries is exceeded', async () => {
