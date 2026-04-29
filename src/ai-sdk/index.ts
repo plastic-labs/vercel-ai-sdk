@@ -80,7 +80,7 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
   };
 
   const getCacheKey = ({ userId, assistantId, sessionId }: CacheKeyConfig): string =>
-    `${assistantId}::${userId}::${sessionId ?? ""}`;
+    JSON.stringify([assistantId, userId, sessionId ?? null]);
 
   const getEntry = (key: string): CacheEntry => {
     const existing = cache.get(key);
