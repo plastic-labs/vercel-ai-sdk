@@ -460,9 +460,8 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
       if (!observer) throw new Error("observerId is required");
       if (!session) throw new Error("sessionId is required");
 
-      await ensureSessionPeers(session, observed, observer);
-      const observerPeer = await ensurePeer(observer, false);
-      const results = await observerPeer
+      const { assistantPeer } = await ensureSessionPeers(session, observed, observer);
+      const results = await assistantPeer
         .conclusionsOf(observed)
         .create({
           content: args.content as string,
