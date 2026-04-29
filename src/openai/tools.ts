@@ -1,4 +1,4 @@
-import type Honcho from "@honcho-ai/core";
+import type { Honcho, Peer, Session } from "@honcho-ai/sdk";
 import { TOOL_DESCRIPTIONS, PARAM_DESCRIPTIONS, DEFAULTS } from "../shared/descriptions.js";
 
 /**
@@ -8,7 +8,6 @@ import { TOOL_DESCRIPTIONS, PARAM_DESCRIPTIONS, DEFAULTS } from "../shared/descr
 
 export interface HonchoOpenAIToolsConfig {
   client: Honcho;
-  workspaceId: string;
   defaultPeerId?: string;
   defaultSessionId?: string;
   defaultObserverPeerId?: string;
@@ -83,11 +82,11 @@ function parseIntegerArg(
  *
  * @example
  * ```ts
- * import { honchoOpenAITools } from "@honcho/ai-sdk/openai";
+ * import { honchoOpenAITools } from "@honcho-ai/ai-sdk/openai";
  * import OpenAI from "openai";
  *
  * const openai = new OpenAI();
- * const honcho = honchoOpenAITools({ client, workspaceId, defaultPeerId: "user-123" });
+ * const honcho = honchoOpenAITools({ client, defaultPeerId: "user-123" });
  *
  * const response = await openai.chat.completions.create({
  *   model: "gpt-4o",
@@ -102,7 +101,66 @@ function parseIntegerArg(
  * ```
  */
 export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolExecutor {
-  const { client, workspaceId, defaultPeerId, defaultSessionId, defaultObserverPeerId } = config;
+  const { client, defaultPeerId, defaultSessionId, defaultObserverPeerId } = config;
+
+  const peerCache = new Map<string, Promise<Peer>>();
+  const sessionCache = new Map<string, Promise<Session>>();
+  const sessionSetupCache = new Map<string, Promise<void>>();
+
+  const cachePromise = <T>(
+    cache: Map<string, Promise<T>>,
+    key: string,
+    factory: () => Promise<T>
+  ): Promise<T> => {
+    const existing = cache.get(key);
+    if (existing) {
+      return existing;
+    }
+    const promise = factory().catch((error) => {
+      cache.delete(key);
+      throw error;
+    });
+    cache.set(key, promise);
+    return promise;
+  };
+
+  const ensurePeer = (peerId: string, observeMe: boolean): Promise<Peer> => {
+    const key = `${peerId}::${observeMe}`;
+    return cachePromise(peerCache, key, () =>
+      client.peer(peerId, { configuration: { observeMe } })
+    );
+  };
+
+  const ensureSession = (sessionId: string): Promise<Session> =>
+    cachePromise(sessionCache, sessionId, () => client.session(sessionId));
+
+  const ensureSessionPeers = async (
+    sessionId: string,
+    userId: string,
+    assistantId: string
+  ) => {
+    const session = await ensureSession(sessionId);
+    const userPeer = await ensurePeer(userId, true);
+    const assistantPeer = await ensurePeer(assistantId, false);
+
+    const setupKey = `${sessionId}::${userId}::${assistantId}`;
+    const setupPromise = sessionSetupCache.get(setupKey) ?? (() => {
+      const promise = session
+        .addPeers([
+          [userPeer, { observeMe: true, observeOthers: false }],
+          [assistantPeer, { observeMe: false, observeOthers: true }],
+        ])
+        .catch((error) => {
+          sessionSetupCache.delete(setupKey);
+          throw error;
+        });
+      sessionSetupCache.set(setupKey, promise);
+      return promise;
+    })();
+    await setupPromise;
+
+    return { session, userPeer, assistantPeer };
+  };
 
   const definitions: OpenAIToolDefinition[] = [
     {
@@ -115,6 +173,14 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
           properties: {
             query: { type: "string", description: PARAM_DESCRIPTIONS.query },
             peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
+            sessionId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.sessionId,
+            },
           },
           required: ["query"],
         },
@@ -179,6 +245,11 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
           type: "object",
           properties: {
             query: { type: "string", description: PARAM_DESCRIPTIONS.query },
+            peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
             limit: { type: "number", description: PARAM_DESCRIPTIONS.limit },
           },
           required: ["query"],
@@ -194,6 +265,14 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
           type: "object",
           properties: {
             peerId: { type: "string", description: PARAM_DESCRIPTIONS.peerId },
+            observerId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.observerId,
+            },
+            sessionId: {
+              type: "string",
+              description: PARAM_DESCRIPTIONS.sessionId,
+            },
           },
           required: [],
         },
@@ -220,11 +299,17 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
 
   const executors: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
     honcho_chat: async (args) => {
-      const peerId = (args.peerId as string) ?? defaultPeerId;
-      if (!peerId) throw new Error("peerId is required");
-      return client.workspaces.peers.chat(workspaceId, peerId, {
-        query: args.query as string,
+      const userId = (args.peerId as string) ?? defaultPeerId;
+      const assistantId = (args.observerId as string) ?? defaultObserverPeerId ?? DEFAULTS.assistantPeerId;
+      const sessionId = (args.sessionId as string) ?? defaultSessionId;
+      if (!userId) throw new Error("peerId is required");
+
+      const assistantPeer = await ensurePeer(assistantId, false);
+      const response = await assistantPeer.chat(args.query as string, {
+        target: userId,
+        session: sessionId,
       });
+      return { content: response ?? "" };
     },
 
     honcho_context: async (args) => {
@@ -253,23 +338,27 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
       if (!observer) throw new Error("observerId is required");
 
       if (session) {
-        const hasPeerPair = observer !== target;
-        const ctx = await client.workspaces.sessions.context(workspaceId, session, {
-          peer_perspective: hasPeerPair ? observer : undefined,
-          peer_target: hasPeerPair ? target : undefined,
+        const { session: sdkSession } = await ensureSessionPeers(
+          session,
+          target,
+          observer
+        );
+        const context = await sdkSession.context({
+          peerPerspective: observer,
+          peerTarget: target,
           summary: includeSummary,
           tokens,
         });
 
-        const messages = (ctx.messages ?? [])
+        const messages = context.messages
           .slice(-messageLimit)
-          .map((m) => ({
-            content: m.content,
-            peer_id: m.peer_id,
+          .map((message) => ({
+            content: message.content,
+            peer_id: message.peerId,
             role:
-              m.peer_id === observer
+              message.peerId === observer
                 ? "observer"
-                : m.peer_id === target
+                : message.peerId === target
                   ? "target"
                   : "other",
           }));
@@ -278,15 +367,16 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
           session_id: session,
           observer_id: observer,
           target_id: target,
-          representation: ctx.peer_representation ?? null,
-          peer_card: ctx.peer_card ?? null,
-          summary: includeSummary ? (ctx.summary?.content ?? null) : null,
+          representation: context.peerRepresentation ?? null,
+          peer_card: context.peerCard ?? null,
+          summary: includeSummary ? (context.summary?.content ?? null) : null,
           messages,
           message_count: messages.length,
         };
       }
 
-      const ctx = await client.workspaces.peers.context(workspaceId, observer, {
+      const observerPeer = await ensurePeer(observer, false);
+      const context = await observerPeer.context({
         target: observer === target ? undefined : target,
       });
 
@@ -294,8 +384,8 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
         session_id: null,
         observer_id: observer,
         target_id: target,
-        representation: ctx.representation ?? null,
-        peer_card: ctx.peer_card ?? null,
+        representation: context.representation ?? null,
+        peer_card: context.peerCard ?? null,
         summary: null,
         messages: [],
         message_count: 0,
@@ -303,44 +393,81 @@ export function honchoOpenAITools(config: HonchoOpenAIToolsConfig): OpenAIToolEx
     },
 
     honcho_search: async (args) => {
-      const peerId = (args.peerId as string) ?? defaultPeerId;
-      if (!peerId) throw new Error("peerId is required");
-      const results = await client.workspaces.peers.search(workspaceId, peerId, {
-        query: args.query as string,
+      const userId = (args.peerId as string) ?? defaultPeerId;
+      if (!userId) throw new Error("peerId is required");
+
+      const userPeer = await ensurePeer(userId, true);
+      const results = await userPeer.search(args.query as string, {
         limit: (args.limit as number) ?? DEFAULTS.searchLimit,
       });
-      return { results: results.map((m) => ({ content: m.content, peer_id: m.peer_id, created_at: m.created_at })), count: results.length };
+
+      return {
+        results: results.map((m) => ({
+          content: m.content,
+          peer_id: m.peerId,
+          created_at: m.createdAt,
+        })),
+        count: results.length,
+      };
     },
 
     honcho_search_conclusions: async (args) => {
-      const results = await client.workspaces.conclusions.query(workspaceId, {
-        query: args.query as string,
-        top_k: (args.limit as number) ?? DEFAULTS.conclusionTopK,
-      });
-      return { results: results.map((c) => ({ content: c.content, observed_id: c.observed_id, created_at: c.created_at })), count: results.length };
+      const target = (args.peerId as string) ?? defaultPeerId;
+      const observer = (args.observerId as string) ?? defaultObserverPeerId ?? DEFAULTS.assistantPeerId;
+      if (!target) throw new Error("peerId is required");
+      if (!observer) throw new Error("observerId is required");
+
+      const observerPeer = await ensurePeer(observer, false);
+      const results = await observerPeer
+        .conclusionsOf(target)
+        .query(
+          args.query as string,
+          (args.limit as number) ?? DEFAULTS.conclusionTopK
+        );
+
+      return {
+        results: results.map((c) => ({
+          content: c.content,
+          observed_id: c.observedId,
+          observer_id: c.observerId,
+          created_at: c.createdAt,
+        })),
+        count: results.length,
+      };
     },
 
     honcho_get_representation: async (args) => {
-      const peerId = (args.peerId as string) ?? defaultPeerId;
-      if (!peerId) throw new Error("peerId is required");
-      return client.workspaces.peers.representation(workspaceId, peerId, {});
+      const target = (args.peerId as string) ?? defaultPeerId;
+      const observer = (args.observerId as string) ?? defaultObserverPeerId ?? DEFAULTS.assistantPeerId;
+      const session = (args.sessionId as string) ?? defaultSessionId;
+      if (!target) throw new Error("peerId is required");
+      if (!observer) throw new Error("observerId is required");
+
+      const observerPeer = await ensurePeer(observer, false);
+      const representation = await observerPeer.representation({
+        target,
+        session,
+      });
+
+      return { representation };
     },
 
     honcho_save_conclusion: async (args) => {
       const observed = (args.observedId as string) ?? defaultPeerId;
-      const observer = (args.observerId as string) ?? defaultObserverPeerId;
+      const observer = (args.observerId as string) ?? defaultObserverPeerId ?? DEFAULTS.assistantPeerId;
       const session = (args.sessionId as string) ?? defaultSessionId;
       if (!observed) throw new Error("observedId is required");
       if (!observer) throw new Error("observerId is required");
       if (!session) throw new Error("sessionId is required");
-      const results = await client.workspaces.conclusions.create(workspaceId, {
-        conclusions: [{
+
+      const { assistantPeer } = await ensureSessionPeers(session, observed, observer);
+      const results = await assistantPeer
+        .conclusionsOf(observed)
+        .create({
           content: args.content as string,
-          observed_id: observed,
-          observer_id: observer,
-          session_id: session,
-        }],
-      });
+          sessionId: session,
+        });
+
       return { success: true, id: results[0]?.id ?? "" };
     },
   };

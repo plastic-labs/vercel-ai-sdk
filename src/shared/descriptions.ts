@@ -67,6 +67,7 @@ export const PARAM_DESCRIPTIONS = {
 } as const;
 
 export const DEFAULTS = {
+  assistantPeerId: "assistant",
   searchLimit: 10,
   conclusionTopK: 10,
   maxConclusions: 20,

@@ -1,202 +1,229 @@
-# @honcho/ai-sdk
+# @honcho-ai/ai-sdk
 
-Persistent memory and user modeling for the [Vercel AI SDK](https://sdk.vercel.ai).
+Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powered by [Honcho](https://honcho.dev).
 
-`@honcho/ai-sdk` wraps any AI SDK model with [Honcho](https://honcho.dev) — giving it a continuously-updated understanding of who it's talking to, automatically injected into each generation and persisted across sessions.
+> Previously published as `@honcho/ai-sdk`. The new package has a flat config API (`honcho.middleware({ userId, sessionId })`) instead of the old session-handle chain. Uninstall `@honcho/ai-sdk` and install `@honcho-ai/ai-sdk`.
 
 ## Install
 
 ```bash
-npm install @honcho/ai-sdk
+npm install @honcho-ai/ai-sdk
 ```
 
 Requires `ai@^6` and Node.js `>=18`.
 
+## Environment
+
+```bash
+HONCHO_API_KEY=...
+HONCHO_WORKSPACE_ID=...
+```
+
+`createHoncho()` reads API key/workspace from options and env.  
+If workspace is missing in both, it implicitly falls back to `"vercel-ai-sdk"` (with a one-time warning).
+
+If `userId` or `sessionId` is omitted, the provider lazily generates IDs for that
+provider instance.
+
+This is convenient for local scripts, demos, and single-user flows. For server apps
+or any setup where one provider instance may handle many users or conversations,
+pass `userId` and `sessionId` explicitly per request so memory does not bleed across
+requests.
+
+You can also set explicit provider defaults for deterministic IDs:
+
+```ts
+const honcho = createHoncho({
+  defaultUserId: "user",
+  defaultAssistantId: "assistant",
+  defaultSessionId: "session",
+});
+```
+
+Resolution behavior:
+- `assistantId` defaults to `"assistant"`
+- missing `userId` lazily generates a provider-scoped user ID
+- missing `sessionId` lazily generates a provider-scoped session ID
+
+Override per call when needed, or disable session behavior with `sessionId: null`.
+
 ## Quick Start
 
 ```ts
-import { createHoncho } from "@honcho/ai-sdk";
-import { wrapLanguageModel, generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { createHoncho } from "@honcho-ai/ai-sdk";
 
 const honcho = createHoncho({
-  workspaceId: process.env.HONCHO_WORKSPACE_ID!,
-  // apiKey defaults to HONCHO_API_KEY env var
-});
-
-// Create a session handle — no API calls yet
-const session = honcho.session("session-123", {
-  user: "user-abc",
-  assistant: "my-assistant",
-});
-
-// Wrap your model — middleware initializes lazily on first use
-const model = wrapLanguageModel({
-  model: anthropic("claude-sonnet-4-20250514"),
-  middleware: session.middleware(),
+  defaultAssistantId: "assistant",
 });
 
 const { text } = await generateText({
-  model,
-  tools: session.tools(),
-  prompt: "What have you learned about me so far?",
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    userId: request.user.id,
+    sessionId: request.chatId,
+  }),
+  prompt: "What should I focus on today?",
 });
 ```
 
-On every call the middleware will:
-1. Fetch the current representation, peer card, and session summary for the user
-2. Inject that context into the system prompt
-3. Persist the user and assistant messages back to Honcho after generation
+This is the recommended pattern for apps: keep the assistant identity stable, and
+pass `userId` plus `sessionId` from request context.
 
-## How It Works
-
-### Dual-Peer Identity
-
-Every session requires two named peers — the human user and the AI assistant. This matters because Honcho attributes messages differently depending on who sent them:
-
-- **User peer** (`observe_me: true`) — Honcho builds a representation of this peer from their own messages
-- **Assistant peer** (`observe_others: true`) — Honcho builds its view of the user from the assistant's perspective
-
-This dual-peer design allows Honcho to develop a genuine theory-of-mind model of the user rather than a simple message log.
+### Local Scripts / Single-User Zero-Config
 
 ```ts
-const session = honcho.session("session-id", {
-  user: "user-abc",       // observed, modeled
-  assistant: "asst-xyz",  // the observer
-});
-```
+const honcho = createHoncho();
 
-### What Gets Injected
-
-The middleware injects a structured block into the system prompt containing:
-
-- **Representation** — a long-form, continuously-updated understanding of the user
-- **Peer card** — structured facts extracted from prior interactions
-- **Session summary** — a compressed summary of the current session so far
-
-### Lazy Initialization
-
-`honcho.session()` is synchronous — no API calls happen at construction time. The session and both peers are created (or retrieved) on first middleware use via `ensure()`, which is idempotent and cached.
-
-## Session Options
-
-```ts
-const session = honcho.session("session-id", peers, {
-  context: {
-    tokens: 2048,             // token budget for context retrieval
-    includeSummary: true,     // include session summary in injection
-    format: (ctx) => `...`,   // custom context formatter
-  },
-  persistence: {
-    enabled: true,            // set false to disable message persistence
-    onError: (err) => { },    // custom error handler
-  },
-  sessionConfig: {            // passed to Honcho getOrCreate
-    dream: { enabled: true },
-    reasoning: { enabled: true },
-  },
-});
-```
-
-## Tools
-
-`session.tools()` returns a set of AI SDK tools the model can call at runtime to query Honcho directly:
-
-| Tool | Description |
-|---|---|
-| `honcho_chat` | Ask Honcho's dialectic reasoning engine a question about the user |
-| `honcho_context` | Retrieve session context (representation, card, summary, recent messages) |
-| `honcho_search` | Semantic search across stored conversation messages |
-| `honcho_get_representation` | Retrieve the current long-form user representation |
-| `honcho_search_conclusions` | Query derived conclusions and observations |
-| `honcho_save_conclusion` | Save a new observation about the user |
-
-```ts
 const { text } = await generateText({
-  model,
-  tools: session.tools(),
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware(),
+  tools: honcho.tools(),
   maxSteps: 3,
-  system: "Use honcho_chat to reason about the user before responding.",
-  prompt: userMessage,
+  prompt: "What should I focus on today?",
 });
 ```
 
-## Multi-Agent Sessions
+This uses generated IDs scoped to that provider instance. It is fine for local
+experiments and single-user flows, but not the safest default for multi-user server
+traffic.
 
-When multiple agents should model each other — not just the user — use the multi-agent module. Each peer can independently observe others and build its own theory-of-mind representation of them.
+## Add Persistence
+
+Set `sessionId` when you want explicit thread boundaries.
+Session mode is active by default (auto-generated when omitted), and can be
+disabled per call with `sessionId: null`:
 
 ```ts
-import { createMultiAgentSession, multiAgentMiddleware } from "@honcho/ai-sdk/multi-agent";
-
-const group = await createMultiAgentSession({
-  provider: { workspaceId: process.env.HONCHO_WORKSPACE_ID! },
-  sessionId: "group-chat-1",
-  peers: [
-    { peerId: "user-alice",      observeMe: true,  observeOthers: false },
-    { peerId: "agent-bob",       observeMe: false, observeOthers: true },
-    { peerId: "agent-charlie",   observeMe: false, observeOthers: true },
-  ],
-});
-
-// Each agent gets its own middleware with cross-peer context injected
-const bobModel = wrapLanguageModel({
-  model: anthropic("claude-sonnet-4-20250514"),
-  middleware: multiAgentMiddleware(group, "agent-bob"),
+const { text } = await generateText({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    userId: "user-123",
+    sessionId: "chat-456",
+  }),
+  prompt: "What should I focus on today?",
 });
 ```
 
-### Cross-Peer Queries
+With session mode active:
+- output is always persisted as `assistantId` (default: `"assistant"`)
+- input is persisted when `persistInput` is `true` (default)
+
+## Add Tools
 
 ```ts
-// What does agent-bob think about user-alice?
-const perspective = await group.getPeerPerspective("agent-bob", "user-alice");
-
-// Full context map: agent-bob's view of all other peers
-const contexts = await group.getCrossPeerContext("agent-bob");
-
-// Ask Honcho to reason about a peer from another peer's perspective
-const answer = await group.askAboutPeer("agent-bob", "user-alice", "What motivates her?");
-
-// Send messages under specific peer identities
-await group.sendMessages([
-  { peerId: "user-alice", content: "I think we should take a different approach." },
-  { peerId: "agent-bob",  content: "Agreed. Here's what I'd suggest..." },
-]);
-
-// Schedule a dream to consolidate observations
-await group.scheduleDream("agent-bob", "user-alice");
+const { text } = await generateText({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    userId: "user-123",
+    sessionId: "chat-456",
+  }),
+  tools: honcho.tools({
+    userId: "user-123",
+    sessionId: "chat-456",
+  }),
+  maxSteps: 3,
+  prompt: "What should I focus on today?",
+});
 ```
 
-## Frontier Modules
+Available tools:
+- `honcho_chat` (dialectic reasoning)
+- `honcho_context`
+- `honcho_search`
+- `honcho_search_conclusions`
+- `honcho_get_representation`
+- `honcho_save_conclusion`
 
-These modules are experimental and subject to change.
+## Messages Array Usage
 
-### Dreaming
-
-Background consolidation agent that reflects on accumulated observations and updates peer representations between sessions.
+If you already pass a `messages` array to `generateText`, disable Honcho history injection to avoid duplication:
 
 ```ts
-import { createDreamingAgent } from "@honcho/ai-sdk/dreaming";
+await generateText({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    userId: "user-123",
+    sessionId: "chat-456",
+    injectHistory: false,
+  }),
+  messages: conversationHistory,
+});
 ```
 
-### Identity Cards
+## Multi-Peer
 
-Structured identity snapshots that track how a peer's card evolves over time with diff and comparison utilities.
+Choose which AI peer is generating with `assistantId`:
 
 ```ts
-import { createPeerIdentity, compareIdentityPerspectives } from "@honcho/ai-sdk/identity";
+await generateText({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    assistantId: "agent-coordinator",
+    userId: "alice",
+    sessionId: "group-123",
+  }),
+  prompt: "Coordinate next steps for Alice.",
+});
 ```
 
-## Subpath Imports
+```ts
+await generateText({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    assistantId: "agent-specialist",
+    userId: "bob",
+    sessionId: "group-123",
+  }),
+  prompt: "Respond as specialist for Bob.",
+});
+```
 
-| Import | Contents |
-|---|---|
-| `@honcho/ai-sdk` | `createHoncho` — primary API |
-| `@honcho/ai-sdk/ai-sdk` | Session + middleware internals |
-| `@honcho/ai-sdk/multi-agent` | `createMultiAgentSession`, `multiAgentMiddleware` |
-| `@honcho/ai-sdk/openai` | OpenAI-format tool wrappers |
-| `@honcho/ai-sdk/dreaming` | Dreaming agent (experimental) |
-| `@honcho/ai-sdk/identity` | Identity card utilities (experimental) |
+## Manual Input Persistence
+
+When your app persists user input itself, set `persistInput: false`:
+
+```ts
+await honcho.send({
+  userId: "alice",
+  sessionId: "group-123",
+  content: "Can you help me plan this sprint?",
+});
+
+await generateText({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({
+    assistantId: "coordinator",
+    userId: "alice",
+    sessionId: "group-123",
+    persistInput: false,
+  }),
+  prompt: "Can you help me plan this sprint?",
+});
+```
+
+## Direct SDK Access
+
+For advanced use cases, use the underlying `@honcho-ai/sdk` client:
+
+```ts
+const session = await honcho.client.session("chat-456");
+const context = await session.context({
+  peerPerspective: "assistant",
+  peerTarget: "user-123",
+  summary: true,
+});
+
+const openAIMessages = context.toOpenAI("assistant");
+const anthropicMessages = context.toAnthropic("assistant");
+```
+
+## Experimental Modules
+
+These are still exposed as separate modules:
+- `@honcho-ai/ai-sdk/openai`
+- `@honcho-ai/ai-sdk/identity`
 
 ## Development
 

@@ -1,143 +1,78 @@
-import type Honcho from "@honcho-ai/core";
+import type { SessionContext } from "@honcho-ai/sdk";
 
 /**
- * Configuration for the Honcho provider factory.
+ * Configuration for createHoncho().
+ *
+ * Most callers can use `createHoncho()` with no arguments and rely on
+ * `HONCHO_API_KEY` plus implicit workspace fallback.
  */
 export interface HonchoProviderOptions {
   /** Honcho API key. Falls back to HONCHO_API_KEY env var. */
   apiKey?: string;
-  /** Workspace ID to scope all operations to. */
-  workspaceId: string;
-  /** Default peer ID used when not overridden per-call. */
-  defaultPeerId?: string;
-  /** Default session ID used when not overridden per-call. */
+  /** Workspace ID. Falls back to HONCHO_WORKSPACE_ID env var. */
+  workspaceId?: string;
+  /** Per-call `userId` > this > generated id with warn-once. Setting this suppresses the warning. */
+  defaultUserId?: string;
+  /** Per-call `assistantId` > this > `"assistant"`. */
+  defaultAssistantId?: string;
+  /** Per-call `sessionId` > this > generated id with warn-once. Setting this suppresses the warning. */
   defaultSessionId?: string;
-  /** Honcho environment: 'production' or 'local'. */
+  /** Optional API environment selector. */
   environment?: "production" | "local";
-  /** Custom base URL (overrides environment). */
+  /** Optional explicit API URL. Overrides environment. */
   baseURL?: string;
+  /** Optional request timeout in milliseconds. */
+  timeout?: number;
+  /** Optional max retry attempts for HTTP calls. */
+  maxRetries?: number;
+  /** Optional additional default headers. */
+  defaultHeaders?: Record<string, string>;
+  /** Max distinct (assistantId, userId, sessionId) entries cached per provider. LRU-evicted by insertion order. Defaults to 1024. */
+  maxCacheEntries?: number;
 }
 
 /**
- * Per-call options passed via providerOptions.honcho in AI SDK,
- * or as runtime parameters in other frameworks.
+ * Flat middleware config for AI SDK model wrapping.
  */
-export interface HonchoCallOptions {
-  /** Peer ID for this call. Overrides defaultPeerId. */
-  peerId?: string;
-  /** Session ID for this call. Overrides defaultSessionId. */
-  sessionId?: string;
-  /** Whether to inject peer context into the system prompt. Default: true. */
-  injectContext?: boolean;
-  /** Whether to persist messages to Honcho after generation. Default: true. */
-  persistMessages?: boolean;
-  /** Peer ID whose perspective to use for representation. */
-  targetPeerId?: string;
-  /** Max tokens for session context retrieval. */
-  contextTokens?: number;
-  /** Include session summary in context. Default: true. */
-  includeSummary?: boolean;
+export interface HonchoMiddlewareConfig {
+  /** Observed peer. Falls back to `defaultUserId` then a generated id with warn-once. */
+  userId?: string;
+  /** Session id. `null` opts out; omit to use `defaultSessionId` then a generated id with warn-once. */
+  sessionId?: string | null;
+  /** AI peer identity generating the response. Defaults to "assistant". */
+  assistantId?: string;
+  /** Persist the user's input message. Defaults to true. */
+  persistInput?: boolean;
+  /** Inject recent session messages from Honcho. Defaults to true. */
+  injectHistory?: boolean;
+  /** Custom context formatter. */
+  formatContext?: (context: SessionContext) => string;
+  /** Error hook for persistence/context failures. */
+  onError?: (error: unknown) => void;
 }
 
 /**
- * Configuration for the Honcho middleware layer.
+ * Flat tools config.
  */
-export interface HonchoMiddlewareOptions {
-  /** Whether to inject peer/session context into the system prompt. Default: true. */
-  injectContext?: boolean;
-  /** Whether to persist messages after generation. Default: true. */
-  persistMessages?: boolean;
-  /** Custom function to format injected context. */
-  formatContext?: (context: HonchoContextData) => string;
+export interface HonchoToolsConfig {
+  /** Observed peer (typically the end user). Falls back to `defaultUserId` then a generated id with warn-once. */
+  userId?: string;
+  /** Session id. `null` opts out of session-scoped retrieval; omit to use `defaultSessionId` then a generated id with warn-once. */
+  sessionId?: string | null;
+  /** AI peer identity for observer-scoped tools. Defaults to "assistant". */
+  assistantId?: string;
 }
 
 /**
- * Data retrieved from Honcho for context injection.
+ * Message persistence helper config.
  */
-export interface HonchoContextData {
-  /** Peer representation text (long-form understanding of the user). */
-  representation?: string | null;
-  /** Peer card entries (structured facts). */
-  peerCard?: string[] | null;
-  /** Session summary text. */
-  summary?: string | null;
-  /** Recent session messages for context. */
-  messages?: Array<{ content: string; peer_id: string }>;
-}
-
-/**
- * Resolved configuration with all defaults applied.
- */
-export interface ResolvedHonchoConfig {
-  client: Honcho;
-  workspaceId: string;
-  peerId: string;
-  sessionId?: string;
-  targetPeerId?: string;
-  injectContext: boolean;
-  persistMessages: boolean;
-  contextTokens?: number;
-  includeSummary: boolean;
-  formatContext: (context: HonchoContextData) => string;
-}
-
-// ── Session-based API types ─────────────────────────────────────
-
-/**
- * Named peer identifiers for a session.
- */
-export interface HonchoSessionPeers {
-  /** Identifier for the human user peer. */
-  user: string;
-  /** Identifier for the AI assistant peer. */
-  assistant: string;
-}
-
-/**
- * Options for configuring a session handle.
- */
-export interface HonchoSessionOptions {
-  /** Context retrieval settings. */
-  context?: {
-    /** Max tokens for context retrieval. */
-    tokens?: number;
-    /** Include session summary. Default: true. */
-    includeSummary?: boolean;
-    /** Custom context formatter. */
-    format?: (context: HonchoContextData) => string;
-  };
-  /** Message persistence settings. */
-  persistence?: {
-    /** Whether to persist messages. Default: true. */
-    enabled?: boolean;
-    /** Error handler for persistence failures. Default: console.warn. */
-    onError?: (error: unknown) => void;
-  };
-  /** Additional session config passed to getOrCreate. */
-  sessionConfig?: Record<string, unknown>;
-}
-
-/**
- * Maps peer IDs to user/assistant roles for context formatting.
- */
-export interface PeerRoleMap {
-  userPeerId: string;
-  assistantPeerId: string;
-}
-
-/**
- * Fully resolved session configuration with all defaults applied.
- */
-export interface ResolvedSessionConfig {
-  client: Honcho;
-  workspaceId: string;
-  sessionId: string;
-  userPeerId: string;
-  assistantPeerId: string;
-  injectContext: boolean;
-  persistMessages: boolean;
-  contextTokens: number;
-  includeSummary: boolean;
-  formatContext: (context: HonchoContextData) => string;
-  onPersistenceError: (error: unknown) => void;
+export interface HonchoSendConfig {
+  /** Peer the message is attributed to. Falls back to `defaultUserId` then a generated id with warn-once. */
+  userId?: string;
+  /** Session id. `null` throws (`send()` requires session mode); omit to use `defaultSessionId` then a generated id with warn-once. */
+  sessionId?: string | null;
+  /** AI peer the message is being sent to. Falls back to `defaultAssistantId` then `"assistant"`. Threads through to session setup so multi-peer flows attach the correct assistant. */
+  assistantId?: string;
+  /** Message content to persist. */
+  content: string;
 }
