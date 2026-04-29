@@ -50,7 +50,7 @@ Override per call when needed, or disable session behavior with `sessionId: null
 ## Quick Start
 
 ```ts
-import { generateText } from "ai";
+import { generateText, wrapLanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { createHoncho } from "@honcho-ai/ai-sdk";
 
@@ -58,12 +58,16 @@ const honcho = createHoncho({
   defaultAssistantId: "assistant",
 });
 
-const { text } = await generateText({
+const model = wrapLanguageModel({
   model: openai("gpt-4o-mini"),
   middleware: honcho.middleware({
     userId: request.user.id,
     sessionId: request.chatId,
   }),
+});
+
+const { text } = await generateText({
+  model,
   prompt: "What should I focus on today?",
 });
 ```
@@ -76,9 +80,13 @@ pass `userId` plus `sessionId` from request context.
 ```ts
 const honcho = createHoncho();
 
-const { text } = await generateText({
+const model = wrapLanguageModel({
   model: openai("gpt-4o-mini"),
   middleware: honcho.middleware(),
+});
+
+const { text } = await generateText({
+  model,
   tools: honcho.tools(),
   maxSteps: 3,
   prompt: "What should I focus on today?",
@@ -97,10 +105,12 @@ disabled per call with `sessionId: null`:
 
 ```ts
 const { text } = await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    userId: "user-123",
-    sessionId: "chat-456",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      userId: "user-123",
+      sessionId: "chat-456",
+    }),
   }),
   prompt: "What should I focus on today?",
 });
@@ -114,10 +124,12 @@ With session mode active:
 
 ```ts
 const { text } = await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    userId: "user-123",
-    sessionId: "chat-456",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      userId: "user-123",
+      sessionId: "chat-456",
+    }),
   }),
   tools: honcho.tools({
     userId: "user-123",
@@ -142,11 +154,13 @@ If you already pass a `messages` array to `generateText`, disable Honcho history
 
 ```ts
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    userId: "user-123",
-    sessionId: "chat-456",
-    injectHistory: false,
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      userId: "user-123",
+      sessionId: "chat-456",
+      injectHistory: false,
+    }),
   }),
   messages: conversationHistory,
 });
@@ -158,11 +172,13 @@ Choose which AI peer is generating with `assistantId`:
 
 ```ts
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    assistantId: "agent-coordinator",
-    userId: "alice",
-    sessionId: "group-123",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      assistantId: "agent-coordinator",
+      userId: "alice",
+      sessionId: "group-123",
+    }),
   }),
   prompt: "Coordinate next steps for Alice.",
 });
@@ -170,11 +186,13 @@ await generateText({
 
 ```ts
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    assistantId: "agent-specialist",
-    userId: "bob",
-    sessionId: "group-123",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      assistantId: "agent-specialist",
+      userId: "bob",
+      sessionId: "group-123",
+    }),
   }),
   prompt: "Respond as specialist for Bob.",
 });
@@ -192,12 +210,14 @@ await honcho.send({
 });
 
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    assistantId: "coordinator",
-    userId: "alice",
-    sessionId: "group-123",
-    persistInput: false,
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      assistantId: "coordinator",
+      userId: "alice",
+      sessionId: "group-123",
+      persistInput: false,
+    }),
   }),
   prompt: "Can you help me plan this sprint?",
 });
