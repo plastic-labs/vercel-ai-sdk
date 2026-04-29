@@ -1,18 +1,5 @@
-/**
- * Smoke test for /honcho-vercel-ai-sdk Phase N verification.
- *
- * Fires one real generateText call through the Honcho middleware and asserts
- * (1) the model responded and (2) Honcho persisted the turn. Requires
- * HONCHO_API_KEY and HONCHO_WORKSPACE_ID in env, plus an OpenAI-compatible
- * model key (default: OPENAI_API_KEY for `openai("gpt-4o-mini")`).
- *
- * Run from a project that has both `@honcho-ai/ai-sdk` and `ai` installed:
- *   bun run node_modules/@honcho-ai/ai-sdk/scripts/verify-integration.ts
- *   node node_modules/@honcho-ai/ai-sdk/scripts/verify-integration.js
- *
- * Or from the repo:
- *   bun run scripts/verify-integration.ts
- */
+// Phase N smoke test for /honcho-vercel-ai-sdk. Fires one generateText
+// call through the wrapped model + asserts Honcho persisted the turn.
 
 import { generateText, wrapLanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";

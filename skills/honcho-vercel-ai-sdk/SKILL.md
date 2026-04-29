@@ -21,23 +21,9 @@ Skip when: you don't have an existing `generateText` / `streamText` / `generateO
 
 For **Honcho fundamentals** (peers, sessions, observation modes, base install), see the `honcho-integration` skill or [docs.honcho.dev](https://docs.honcho.dev). This skill is Vercel-AI-SDK-specific.
 
-## Skill discoverability (read this before invoking)
+## Skill discoverability
 
-This skill ships with `@honcho-ai/ai-sdk`. Claude Code does not auto-discover it. To invoke as `/honcho-vercel-ai-sdk` in a new session, symlink it into your project's or user's `.claude/skills/` directory, then restart the Claude Code session:
-
-```bash
-# Path A — cloned the source repo (for demo, examples, or source review)
-mkdir -p ~/.claude/skills/honcho-vercel-ai-sdk
-ln -sf <path-to-cloned-repo>/skills/honcho-vercel-ai-sdk/SKILL.md \
-       ~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md
-
-# Path B — npm-installed only
-mkdir -p ~/.claude/skills/honcho-vercel-ai-sdk
-ln -sf node_modules/@honcho-ai/ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md \
-       ~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md
-```
-
-Restart the Claude Code session after symlinking. Or read this file directly and execute each phase as a checklist.
+To invoke as `/honcho-vercel-ai-sdk` in a new session, symlink this file into `~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md` and restart the Claude Code session. Both install paths (cloned source vs npm-installed) are documented in the [package README](../../README.md). Or read this file directly and execute each phase as a checklist.
 
 ## Phase 0 — Preflight
 
@@ -53,16 +39,15 @@ grep -q '"@honcho-ai/ai-sdk"' package.json && \
   echo "@honcho-ai/ai-sdk not installed yet"
 ```
 
-### Gate: version check (if `@honcho-ai/ai-sdk` already installed)
+### Gate: package check (catches the old `@honcho/ai-sdk` install)
 
-The post-V3 surface uses `honcho.middleware({ userId, sessionId, assistantId })` passed as the `middleware:` option to `generateText` / `streamText`. Pre-V3 versions used a session-handle chain (`honcho.session(...).middleware()`). If the installed version is pre-V3, instruct the dev to upgrade before continuing — middleware shape doesn't apply to pre-V3 installs.
+`@honcho-ai/ai-sdk` (this package) uses `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })`. The previous package, `@honcho/ai-sdk` (note: no `-ai`), used a different session-handle chain API (`honcho.session(...).middleware()`) and is no longer maintained. If the project still has the old package installed, switch before continuing — the middleware shape this skill uses doesn't apply.
 
 ```bash
-node -e '
-  const v = require("./node_modules/@honcho-ai/ai-sdk/package.json").version;
-  const [maj] = v.split(".").map(Number);
-  if (maj < 1) { console.error(`pre-V3 (${v}) — upgrade to >=1.0.0`); process.exit(1); }
-'
+if grep -q '"@honcho/ai-sdk"' package.json; then
+  echo "error: legacy @honcho/ai-sdk detected. Run: npm uninstall @honcho/ai-sdk && npm install @honcho-ai/ai-sdk"
+  exit 1
+fi
 ```
 
 ### Gate: route INTEGRATE / DEBUG / SCAFFOLD
@@ -232,7 +217,7 @@ Match symptoms to causes. The first column is what the dev sees; the third colum
 | Symptom | Cause | Fix |
 |---|---|---|
 | Model output is normal but no memory accumulates across calls | Model not wrapped — `wrapLanguageModel` is missing, so middleware never fires | Wrap the model: `const model = wrapLanguageModel({ model: openai(...), middleware: honcho.middleware({ userId, sessionId }) })`, then pass `model` to `generateText` |
-| Code uses `middleware: honcho.middleware({...})` directly on `generateText` | This pattern is in older docs but isn't a typechecking option in `ai@^6` — `middleware` is only valid via `wrapLanguageModel` | Switch to `wrapLanguageModel({ model, middleware })` and pass the wrapped `model` to `generateText`. See Phase 2.2 above |
+| Code passes `middleware:` directly to `generateText` (from older docs) | `ai@^6` only accepts middleware via `wrapLanguageModel` | Switch to `wrapLanguageModel({ model, middleware })` and pass the wrapped `model`. See Phase 2.2 |
 | TypeScript error: `Argument of type 'string' is not assignable to parameter of type 'CoreMessage[]'` | `prompt` and `messages` confused — middleware fires on either, but the call shape must be one or the other | Pick `prompt: string` OR `messages: CoreMessage[]`. Don't pass both. |
 | AI's responses leak into "what the user said" memory | `observe_me=True` on the AI peer (default for human peers, wrong for AI) | Set `observe_me=False` on the assistant peer. See [docs.honcho.dev](https://docs.honcho.dev) observation modes |
 | AI forgets the conversation between requests in the same chat | `sessionId` not stable across requests — generated fresh each time | Pass a stable per-conversation ID (e.g. `request.chatId`) as `sessionId`. Or omit it and let the provider auto-generate a single ID for the whole instance (single-user only) |
@@ -284,20 +269,17 @@ If typecheck fails on lines the skill edited, fix and re-run before declaring do
 [[ -n "$HONCHO_API_KEY" ]] || { echo "skip — no HONCHO_API_KEY"; exit 0; }
 ```
 
-If the env var is set, fire one real call against the wrapped model and assert middleware fired + Honcho returned context. The package ships a script for this:
+If the env var is set, fire one real call against the wrapped model and assert middleware fired + Honcho persisted the turn. The package ships a TypeScript script for this:
 
 ```bash
-node node_modules/@honcho-ai/ai-sdk/scripts/verify-integration.js \
-  || bun run node_modules/@honcho-ai/ai-sdk/scripts/verify-integration.ts
-```
+# From the dev's project (after npm install)
+bun run node_modules/@honcho-ai/ai-sdk/scripts/verify-integration.ts
 
-Or if you cloned the repo:
-
-```bash
+# From a clone of the source repo
 bun run scripts/verify-integration.ts
 ```
 
-Success looks like: a 200 response from the model + a non-empty conversation echoed back from Honcho. Failure surfaces as either a 4xx (env / config) or a stack trace (genuine bug).
+The script also requires `OPENAI_API_KEY` and `@ai-sdk/openai` to be installed (it fires a real `generateText` call against `openai("gpt-4o-mini")`). Success: model responds, Honcho reports >= 2 messages persisted. Failure surfaces as a missing-env error, a 4xx from the model, or a stack trace (genuine bug).
 
 ---
 
@@ -343,4 +325,4 @@ For deeper concepts (workspace, dialectic chat, conclusions), see [docs.honcho.d
 | Construct the provider inside the request handler | Provider holds an in-memory ID cache. Module-scope construction is correct; per-request is not. |
 | Insert `import { createHoncho } from "@honcho-ai/ai-sdk"` without confirming the package is installed | If the import lands in a file before the package is in `package.json`, the build breaks. Confirm `npm install @honcho-ai/ai-sdk` first. |
 | Treat "the call returns text" as success in Phase N | Middleware errors are non-blocking by default — the call returns text whether Honcho fired or not. The verification has to confirm middleware actually ran (logs, dashboard, or smoke script). |
-| Skip Phase 0's version check on a pre-existing install | Pre-V3 versions used a session-handle chain. Applying V3 patterns to a pre-V3 install produces a TypeScript error and confused users. |
+| Skip Phase 0's package check on a pre-existing install | The legacy `@honcho/ai-sdk` package used a session-handle chain. Applying this skill's patterns to a project that still has the legacy package produces a TypeScript error and confused users. |
