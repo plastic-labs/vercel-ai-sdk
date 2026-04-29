@@ -50,7 +50,7 @@ export function createMiddleware({
               peerTarget: config.userId,
               summary: true,
             })
-          : await buildPeerOnlyContext(resources.userPeer);
+          : await buildPeerOnlyContext(resources, config);
 
         const formattedContext = formatContext(context, config);
         if (!formattedContext) {
@@ -246,8 +246,15 @@ function defaultFormatContext(
   return sections.join("\n\n").trim();
 }
 
-async function buildPeerOnlyContext(userPeer: Peer): Promise<SessionContext> {
-  const peerContext = await userPeer.context();
+async function buildPeerOnlyContext(
+  resources: MiddlewareResources,
+  config: Pick<ResolvedMiddlewareConfig, "userId" | "assistantId">
+): Promise<SessionContext> {
+  const observerPeer = resources.assistantPeer ?? resources.userPeer;
+  const peerContext =
+    config.assistantId === config.userId
+      ? await observerPeer.context()
+      : await observerPeer.context({ target: config.userId });
   return new SessionContext(
     "peer-only",
     [],

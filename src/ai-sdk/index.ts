@@ -259,7 +259,7 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
         config: resolved,
         ensureResources: async () =>
           ensureResources(resolved, {
-            assistant: Boolean(resolved.sessionId),
+            assistant: true,
             session: Boolean(resolved.sessionId),
           }),
       });

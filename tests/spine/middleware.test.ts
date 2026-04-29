@@ -47,19 +47,25 @@ afterEach(() => {
 });
 
 describe('honcho middleware spine', () => {
-  it('context-only (no sessionId): pulls peer.context, no session.addMessages', async () => {
+  it('context-only (no sessionId): pulls assistantPeer.context targeting userId, no session.addMessages', async () => {
     const userPeerContext = vi.fn(async () => ({
       peerId: 'u1',
       targetId: 'u1',
-      representation: 'rep-u1',
-      peerCard: ['fact-1'],
+      representation: 'self-rep',
+      peerCard: ['self-card'],
+    }));
+    const assistantPeerContext = vi.fn(async () => ({
+      peerId: 'a1',
+      targetId: 'u1',
+      representation: 'assistant-view-of-u1',
+      peerCard: ['assistant-fact-1'],
     }));
     sharedClient.current.peer.mockImplementation(async (id: string) => ({
       id,
       workspaceId: 'mock-workspace',
       chat: vi.fn(async () => ''),
       search: vi.fn(async () => []),
-      context: userPeerContext,
+      context: id === 'a1' ? assistantPeerContext : userPeerContext,
       representation: vi.fn(async () => ''),
       message: vi.fn((content: string) => ({ peerId: id, content })),
       conclusionsOf: vi.fn(() => ({ query: vi.fn(async () => []), create: vi.fn(async () => undefined) })),
@@ -67,7 +73,7 @@ describe('honcho middleware spine', () => {
 
     const { createHoncho } = await importHoncho();
     const honcho = createHoncho({ workspaceId: 'mock-workspace' });
-    const middleware = honcho.middleware({ userId: 'u1', sessionId: null });
+    const middleware = honcho.middleware({ userId: 'u1', assistantId: 'a1', sessionId: null });
 
     const captured: { systemContent?: string } = {};
     const baseModel = new MockLanguageModelV3({
@@ -88,10 +94,58 @@ describe('honcho middleware spine', () => {
 
     await generateText({ model, prompt: 'hello' });
 
-    expect(userPeerContext).toHaveBeenCalledTimes(1);
+    expect(assistantPeerContext).toHaveBeenCalledTimes(1);
+    expect(assistantPeerContext).toHaveBeenCalledWith({ target: 'u1' });
+    expect(userPeerContext).not.toHaveBeenCalled();
     expect(sharedClient.current.session).not.toHaveBeenCalled();
     expect(captured.systemContent).toContain('<honcho_user_context>');
+    expect(captured.systemContent).toContain('assistant-view-of-u1');
     expect(captured.systemContent).toContain('<honcho_user_card>');
+    expect(captured.systemContent).toContain('assistant-fact-1');
+  });
+
+  it('context-only with userId === assistantId: calls peer.context() without target', async () => {
+    const selfContext = vi.fn(async () => ({
+      peerId: 'solo',
+      targetId: 'solo',
+      representation: 'self-rep',
+      peerCard: ['self-fact'],
+    }));
+    sharedClient.current.peer.mockImplementation(async (id: string) => ({
+      id,
+      workspaceId: 'mock-workspace',
+      chat: vi.fn(async () => ''),
+      search: vi.fn(async () => []),
+      context: selfContext,
+      representation: vi.fn(async () => ''),
+      message: vi.fn((content: string) => ({ peerId: id, content })),
+      conclusionsOf: vi.fn(() => ({ query: vi.fn(async () => []), create: vi.fn(async () => undefined) })),
+    }));
+
+    const { createHoncho } = await importHoncho();
+    const honcho = createHoncho({ workspaceId: 'mock-workspace' });
+    const middleware = honcho.middleware({
+      userId: 'solo',
+      assistantId: 'solo',
+      sessionId: null,
+    });
+
+    const model = wrapLanguageModel({
+      model: new MockLanguageModelV3({
+        doGenerate: async () => ({
+          content: [{ type: 'text', text: 'ok' }],
+          finishReason: { unified: 'stop', raw: 'stop' },
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          warnings: [],
+        }),
+      }),
+      middleware,
+    });
+
+    await generateText({ model, prompt: 'hi' });
+
+    expect(selfContext).toHaveBeenCalledTimes(1);
+    expect(selfContext).toHaveBeenCalledWith();
   });
 
   it('with-session output persistence: addMessages called with user + assistant', async () => {
