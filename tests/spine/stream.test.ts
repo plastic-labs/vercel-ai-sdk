@@ -134,15 +134,15 @@ describe('streaming finishReason gate', () => {
     });
 
     const result = streamText({ model, prompt: 'hi' });
-    try {
-      for await (const _ of result.textStream) {
-        // drain
-      }
-    } catch {
-      // expected: the stream surfaces the error chunk
+    let drained = false;
+    for await (const _ of result.textStream) {
+      drained = true;
     }
 
+    const finishReason = await result.finishReason;
+    expect(finishReason).toBe('error');
     expect(session.addMessages).not.toHaveBeenCalled();
+    expect(drained).toBeDefined();
   });
 
   it('persists when finishReason is "length" (still a valid completion)', async () => {
