@@ -27,6 +27,8 @@ export interface HonchoProviderOptions {
   maxRetries?: number;
   /** Optional additional default headers. */
   defaultHeaders?: Record<string, string>;
+  /** Max distinct (assistantId, userId, sessionId) entries cached per provider. LRU-evicted by insertion order. Defaults to 1024. */
+  maxCacheEntries?: number;
 }
 
 /**

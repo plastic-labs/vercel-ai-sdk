@@ -129,6 +129,87 @@ describe('cache rejection recovery', () => {
     expect(peerCalls).toBeGreaterThanOrEqual(2);
   });
 
+  it('LRU evicts oldest entry when maxCacheEntries is exceeded', async () => {
+    const session = {
+      id: 's1',
+      workspaceId: 'mock-workspace',
+      context: vi.fn(async () => createMockSessionContext({ sessionId: 's1' })),
+      addMessages: vi.fn(async () => []),
+      addPeers: vi.fn(async () => undefined),
+    };
+    sharedClient.current.session.mockResolvedValue(session);
+
+    const { createHoncho } = await importHoncho();
+    const honcho = createHoncho({
+      workspaceId: 'mock-workspace',
+      maxCacheEntries: 2,
+    });
+
+    async function exercise(userId: string) {
+      const middleware = honcho.middleware({
+        userId,
+        assistantId: 'a1',
+        sessionId: 's1',
+      });
+      await generateText({
+        model: wrapLanguageModel({ model: makeAssistantModel('ok'), middleware }),
+        prompt: 'hi',
+      });
+    }
+
+    await exercise('u1');
+    await exercise('u2');
+    await exercise('u3');
+
+    sharedClient.current.peer.mockClear();
+    await exercise('u1');
+    const u1RefetchCount = sharedClient.current.peer.mock.calls.filter(
+      (c) => c[0] === 'u1',
+    ).length;
+    expect(u1RefetchCount).toBe(1);
+  });
+
+  it('LRU keeps recently-used entries when capacity is reached', async () => {
+    const session = {
+      id: 's1',
+      workspaceId: 'mock-workspace',
+      context: vi.fn(async () => createMockSessionContext({ sessionId: 's1' })),
+      addMessages: vi.fn(async () => []),
+      addPeers: vi.fn(async () => undefined),
+    };
+    sharedClient.current.session.mockResolvedValue(session);
+
+    const { createHoncho } = await importHoncho();
+    const honcho = createHoncho({
+      workspaceId: 'mock-workspace',
+      maxCacheEntries: 2,
+    });
+
+    async function exercise(userId: string) {
+      const middleware = honcho.middleware({
+        userId,
+        assistantId: 'a1',
+        sessionId: 's1',
+      });
+      await generateText({
+        model: wrapLanguageModel({ model: makeAssistantModel('ok'), middleware }),
+        prompt: 'hi',
+      });
+    }
+
+    await exercise('u1');
+    await exercise('u2');
+    await exercise('u1');
+    await exercise('u3');
+
+    sharedClient.current.peer.mockClear();
+    await exercise('u1');
+    const u1RefetchCount = sharedClient.current.peer.mock.calls.filter(
+      (c) => c[0] === 'u1',
+    ).length;
+    expect(u1RefetchCount).toBe(0);
+  });
+
   it('session rejection clears cache so retry re-attempts and succeeds', async () => {
     let sessionCalls = 0;
     sharedClient.current.session.mockImplementation(async (id: string) => {

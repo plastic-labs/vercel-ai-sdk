@@ -56,9 +56,15 @@ export type { HonchoMiddlewareConfig, HonchoToolsConfig, HonchoSendConfig };
 /**
  * Create a Honcho provider with flat middleware/tools APIs.
  */
+const DEFAULT_MAX_CACHE_ENTRIES = 1024;
+
 export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvider {
   const client = createClient(options);
   const cache = new Map<string, CacheEntry>();
+  const maxCacheEntries =
+    options.maxCacheEntries != null && options.maxCacheEntries > 0
+      ? Math.floor(options.maxCacheEntries)
+      : DEFAULT_MAX_CACHE_ENTRIES;
   let generatedUserId: string | undefined;
   let generatedSessionId: string | undefined;
   let hasWarnedGeneratedUserId = false;
@@ -85,10 +91,19 @@ export function createHoncho(options: HonchoProviderOptions = {}): HonchoProvide
   const getEntry = (key: string): CacheEntry => {
     const existing = cache.get(key);
     if (existing) {
+      cache.delete(key);
+      cache.set(key, existing);
       return existing;
     }
     const created: CacheEntry = {};
     cache.set(key, created);
+    while (cache.size > maxCacheEntries) {
+      const oldest = cache.keys().next();
+      if (oldest.done) {
+        break;
+      }
+      cache.delete(oldest.value);
+    }
     return created;
   };
 
