@@ -4,15 +4,21 @@ Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powe
 
 > **Memory that thinks about your users, not memory that retrieves what they said.**
 
-Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. That's different from a vector DB, which retrieves passages your user has seen. If you've reached for "memory" and ended up with semantic search that returned the wrong thing, you wanted reasoning, not retrieval.
-
-This package wires Honcho into Vercel AI SDK apps via a single middleware: wrap your model once with `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })`, and every `generateText` / `streamText` call accumulates memory automatically. For Honcho concepts beyond the SDK (peers, sessions, observation modes, dialectic chat), see [docs.honcho.dev](https://docs.honcho.dev).
+Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. Reasoning, not retrieval from a vector DB.
 
 > Previously published as `@honcho/ai-sdk`. The new package has a flat config API (`honcho.middleware({ userId, sessionId })`) instead of the old session-handle chain. Uninstall `@honcho/ai-sdk` and install `@honcho-ai/ai-sdk`.
 
-## Use the integration skill (Claude Code)
+## Use the skill
 
-Integrating into an existing Vercel AI SDK app? This package ships an Anthropic Skill that walks the agent through the integration. After `npm install @honcho-ai/ai-sdk`:
+The package ships an Anthropic Skill (SKILL.md) that walks an agent through wiring Honcho into your Vercel AI SDK app. After install, the skill lives at:
+
+```
+node_modules/@honcho-ai/ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md
+```
+
+Load it however your agent loads skills.
+
+**Claude Code:**
 
 ```bash
 mkdir -p ~/.claude/skills/honcho-vercel-ai-sdk
@@ -20,14 +26,11 @@ ln -sf "$(pwd)/node_modules/@honcho-ai/ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.
        ~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md
 ```
 
-If you cloned this repo for source review or examples, point the symlink at the cloned source instead:
+Restart the session, then invoke `/honcho-vercel-ai-sdk`.
 
-```bash
-ln -sf "$(pwd)/skills/honcho-vercel-ai-sdk/SKILL.md" \
-       ~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md
-```
+**Other agents (Codex, Cursor, etc.):** point your agent at the SKILL.md path, or paste its contents into the agent's instructions surface. The format is plain markdown with YAML frontmatter — readable by any agent that supports skill-style instructions.
 
-Restart your Claude Code session, then invoke `/honcho-vercel-ai-sdk`. The skill recognizes your `generateText` / `streamText` call sites, identifies your auth and session ID source, and applies the integration in place.
+The skill greps for your `generateText` / `streamText` call sites, asks where `userId` / `sessionId` come from, and applies the integration in place.
 
 ## Install
 

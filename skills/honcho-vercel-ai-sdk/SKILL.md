@@ -1,6 +1,6 @@
 ---
 name: honcho-vercel-ai-sdk
-description: Integrate Honcho memory into a Vercel AI SDK app, or debug a broken Honcho + Vercel AI SDK setup. Use when a developer has an existing Vercel AI SDK app (Next.js / Express / Hono / similar) and wants AI memory that thinks about users, not memory that retrieves what they said. Edit-driven — the skill reads the codebase, identifies where Honcho fits, and applies the integration to those specific call sites.
+description: Integrate or debug Honcho memory in a Vercel AI SDK app. Use when wiring generateText / streamText calls or triaging a broken Honcho integration.
 allowed-tools: Read, Glob, Grep, Bash(npm:*), Bash(node:*), Bash(bun:*), Edit, Write, AskUserQuestion
 user-invocable: true
 ---
@@ -21,9 +21,19 @@ Skip when: you don't have an existing `generateText` / `streamText` / `generateO
 
 For **Honcho fundamentals** (peers, sessions, observation modes, base install), see the `honcho-integration` skill or [docs.honcho.dev](https://docs.honcho.dev). This skill is Vercel-AI-SDK-specific.
 
+## Gate policy
+
+3 required AskUserQuestion gates — fire all every run, even in auto mode:
+
+1. Route — INTEGRATE vs DEBUG (Phase 0)
+2. App shape — multi-user vs single-user / script (Phase 1)
+3. Peer + session confirmation — canonical shape vs customize (Phase 3.1)
+
+Visible code signal is not consent.
+
 ## Skill discoverability
 
-To invoke as `/honcho-vercel-ai-sdk` in a new session, symlink this file into `~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md` and restart the Claude Code session. Both install paths (cloned source vs npm-installed) are documented in the [package README](../../README.md). Or read this file directly and execute each phase as a checklist.
+See the [package README](../../README.md) for how to load this Skill into your agent (Claude Code, Codex, Cursor, etc.). Or read this file directly and execute each phase as a checklist.
 
 ## Phase 0 — Preflight
 
@@ -63,7 +73,7 @@ If neither fits — e.g., the dev wants to start a brand-new app pre-wired with 
 
 ## INTEGRATE path
 
-The skill reads the codebase, identifies where Honcho fits, and applies the integration to those specific call sites. Minimal interrogation; light "ask before file write" gates.
+The skill reads the codebase, identifies where Honcho fits, and applies the integration to those specific call sites. Required gates per [Gate policy](#gate-policy): route, app shape, peer + session confirmation. Apply every run regardless of how unambiguous the codebase looks.
 
 ### Phase 1 — Recognize the codebase
 
@@ -87,11 +97,22 @@ If no `generateText` / `streamText` / `generateObject` matches: stop with the me
 
 > No model call sites detected. The skill expects an existing Vercel AI SDK app. Make at least one call (see [README Quick Start](../../README.md)), then re-invoke.
 
-#### Gate: unrecognized auth pattern
+#### Gate: app shape (always)
 
-If the auth grep returns nothing recognized, ask the dev directly. Don't guess.
+The only thing the agent can't infer from code: is this a **multi-user app** (many humans share one running process, each with their own identity) or a **single-user / script** (one human runs it, no auth layer)?
 
-Use **AskUserQuestion**: "Where does the user / session ID come from in your app? Give a path and example shape (e.g. `app/api/chat/route.ts:14, request.user.id from JWT cookie`)."
+Most Vercel AI SDK apps are multi-user — assume that default when in doubt. Single-user is rarer: local CLI scripts, personal Discord bots, internal admin jobs.
+
+Use **AskUserQuestion**:
+
+> "Is this app multi-user (real users, each with their own identity) or single-user / script (one human running it, no auth layer)? Most Vercel AI SDK apps are multi-user."
+
+Options:
+
+1. **Multi-user** (recommended default) — many humans share one running process. Wire `userId` from auth (`request.user.id` from next-auth / lucia / JWT). For prototypes without auth yet, `body.userId` works as a stand-in; replace before shipping to production.
+2. **Single-user / script** — one human runs this. Omit `userId` from the middleware call; `createHoncho()` auto-generates a stable per-process ID. The provider warns once on first use.
+
+Ask every run. Visible `userId` in the request body doesn't tell the agent which world the app is in — could be real auth, test data in a multi-user app, or leftover scaffolding from a single-user script.
 
 #### Gate: multiple disjoint call sites
 
@@ -166,21 +187,34 @@ const result = await streamText({
 });
 ```
 
-### Phase 3 — Configure peers and sessions
+### Phase 3 — Confirm peer + session model
 
-Honcho's data model has three primitives — peers (entities the AI tracks), sessions (conversation boundaries), and observation modes (which peer's messages get observed).
+Honcho's data model has three primitives — peers (entities the AI tracks), sessions (conversation boundaries), and observation modes (which peer's messages get observed). For ~95% of Vercel AI SDK apps, the canonical shape is **per-user peer + per-conversation session** with `defaultAssistantId: "assistant"`. Phase 3 confirms that default rather than re-asking the design space; expand only if the dev wants to override.
 
-#### 3.1 Peer model decision
+#### 3.1 Summary confirmation
 
-Use **AskUserQuestion**:
+**Required gate, every run.** Single binary: accept the canonical shape or customize.
 
+Use **AskUserQuestion** with this shape:
+
+> "Wiring with **per-user peer** (one Honcho peer per real user, keyed by `userId`) + **per-conversation session** (one session per chat thread, keyed by `chatId`) + `defaultAssistantId: \"assistant\"`. This is the canonical shape for multi-user chat apps. Confirm or customize?"
+
+Options:
+
+1. **Confirm** — apply the canonical shape. Skip 3.2.
+2. **Customize** — open the design space (3.2 below).
+
+If the dev confirms, proceed to Phase N. If they customize, surface the two questions in 3.2.
+
+#### 3.2 Customize (only when 3.1 → "Customize")
+
+Two follow-up AskUserQuestions, in order:
+
+**Peer model:**
 - **Per-user peer** (recommended for multi-user apps) — `userId: request.user.id` per request. One peer per real user; memory does not bleed across users.
-- **Per-instance peer** (single-user / local script) — `createHoncho()` without `userId` lazily generates a provider-scoped user ID. Fine for local experiments. The provider warns once on first use.
+- **Per-instance peer** (single-user / local script) — `createHoncho()` without `userId` lazily generates a provider-scoped user ID. The provider warns once on first use.
 
-#### 3.2 Session boundary decision
-
-Use **AskUserQuestion**:
-
+**Session boundary:**
 - **Per-conversation session** (recommended) — `sessionId: request.chatId` per request, stable for the lifetime of one chat thread. New thread = new session.
 - **No session** — `sessionId: null` disables session mode. Use only if you want raw memory ops without conversation grouping.
 
@@ -188,7 +222,7 @@ Stable session IDs are load-bearing. If `sessionId` changes between requests in 
 
 #### 3.3 Assistant identity
 
-`defaultAssistantId: "assistant"` is the recommended default. Override only if you have multiple distinct AI personas in one app (and want each to maintain its own memory). The default value `"assistant"` is also Honcho's expected value for single-persona apps.
+`defaultAssistantId: "assistant"` is the recommended default. Override only if you have multiple distinct AI personas in one app (and want each to maintain its own memory). Surface as part of the summary in 3.1; don't gate separately.
 
 ---
 
@@ -235,87 +269,41 @@ If none of the rows above match, capture the diagnostic info from Phase 1 and op
 
 ## Phase N — Verification
 
-Both INTEGRATE and DEBUG converge here. Three checks; the third is gated on env.
+Both INTEGRATE and DEBUG converge here.
 
-### N.1 Re-read edited files
+- `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })` is applied to every model passed to `generateText` / `streamText` — middleware errors are non-blocking, so a wrap-less call still returns text. Skipping this is the most common silent failure
+- `userId` and `sessionId` come from request context (not hardcoded), unless this is a single-user / script
+- The provider is constructed at module scope, not inside the request handler
+- Project typecheck passes (`npm run typecheck` or `tsc --noEmit`)
+- Optional runtime smoke if `HONCHO_API_KEY` is set:
 
-Read every file the skill edited and confirm:
+```ts
+// .smoke.mjs (delete after running)
+import "dotenv/config";
+import { generateText, wrapLanguageModel } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { createHoncho } from "@honcho-ai/ai-sdk";
 
-- `import { createHoncho } from "@honcho-ai/ai-sdk"` is present
-- The provider is constructed at module scope, not inside the request handler (constructing per-request loses the provider's ID-cache and re-warns on every call)
-- `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })` is applied to every model that gets passed to `generateText` / `streamText`
-- `userId` and `sessionId` are sourced from the request context (not hardcoded), unless this is a local single-user script
+const honcho = createHoncho({ defaultAssistantId: "assistant" });
+const model = wrapLanguageModel({
+  model: openai("gpt-4o-mini"),
+  middleware: honcho.middleware({ userId: "smoke-test", sessionId: "smoke-1" }),
+});
 
-### N.2 Type-check passes
-
-Detect the project's typecheck script and run it; fall back to `tsc --noEmit`.
-
-```bash
-if grep -q '"typecheck"' package.json; then
-  npm run typecheck
-elif command -v bun >/dev/null 2>&1; then
-  bun run tsc --noEmit
-else
-  npx tsc --noEmit
-fi
+const { text } = await generateText({ model, prompt: "say hi back in 5 words" });
+console.log("MODEL_OUT:", text);
 ```
 
-If typecheck fails on lines the skill edited, fix and re-run before declaring done. If it fails on pre-existing code unrelated to the integration, surface as a finding but don't fix (out of scope).
-
-### N.3 Runtime smoke test (optional — gated on `HONCHO_API_KEY`)
-
 ```bash
-[[ -n "$HONCHO_API_KEY" ]] || { echo "skip — no HONCHO_API_KEY"; exit 0; }
+bun .smoke.mjs && rm .smoke.mjs
 ```
 
-If the env var is set, fire one real call against the wrapped model and assert middleware fired + Honcho persisted the turn. The package ships a TypeScript script for this:
+Requires `OPENAI_API_KEY` + `@ai-sdk/openai` (already installed from Phase 0).
 
-```bash
-# From the dev's project (after npm install)
-bun run node_modules/@honcho-ai/ai-sdk/scripts/verify-integration.ts
-
-# From a clone of the source repo
-bun run scripts/verify-integration.ts
-```
-
-The script also requires `OPENAI_API_KEY` and `@ai-sdk/openai` to be installed (it fires a real `generateText` call against `openai("gpt-4o-mini")`). Success: model responds, Honcho reports >= 2 messages persisted. Failure surfaces as a missing-env error, a 4xx from the model, or a stack trace (genuine bug).
 
 ---
 
-## Concept Mapping
-
-| Vercel AI SDK | Honcho | Notes |
-|---|---|---|
-| `messages: CoreMessage[]` | `peer.add_messages()` (server-side) | Middleware persists each turn automatically. You don't call `add_messages` from app code. |
-| `model` (e.g. `openai("gpt-4o-mini")`) | model-agnostic | Honcho is provider-neutral. Wrap any model with `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })`. Outputs flow through Honcho's middleware regardless of provider. |
-| `tools` parameter to `generateText` | `honcho.tools()` | Spread `...honcho.tools()` alongside your own tools to give the model direct memory access (search, ask, recall). |
-| route-handler `userId` (from auth) | Honcho **peer** | One peer per real user. Stable across sessions. |
-| route-handler `sessionId` / `chatId` | Honcho **session** | Conversation boundary. Stable for one thread; new thread = new session. |
-| `defaultAssistantId: "assistant"` | Honcho **assistant peer** | Stable AI identity. Default value `"assistant"` is recommended for single-persona apps. |
-| (none) | **observation mode** | Whose messages each peer "observes." Human peers default to `observe_me=True`; AI peers should be `observe_me=False`. |
-
-For deeper concepts (workspace, dialectic chat, conclusions), see [docs.honcho.dev](https://docs.honcho.dev) or the `honcho-integration` skill.
-
-## Common Mistakes
-
-| Mistake | Why it's wrong | Fix |
-|---|---|---|
-| Treating Honcho as a vector DB / RAG layer | Honcho is reasoning + peer modeling. RAG retrieves facts; Honcho models users. They solve different problems. | Read [the framing sentence](#add-honcho-memory-to-a-vercel-ai-sdk-app) and the [Honcho docs](https://docs.honcho.dev). If you want vector retrieval, use a vector DB. |
-| Installing `@honcho-ai/ai-sdk` without wrapping the model | The package's import is half the integration. Without `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })`, nothing fires. | Grep for `generateText` / `streamText` and confirm every call uses a wrapped model. |
-| Sharing one peer ID across all users in a multi-user app | Memory bleeds across users. The AI starts mixing one user's preferences into another's responses. | Pass `userId` from your auth context per request. |
-| Setting `observe_me=True` on the AI peer | The AI's outputs get treated as user signal. The user model becomes a mirror of the AI's own writing. | `observe_me=False` on the assistant peer. |
-| Generating a fresh `sessionId` per request | New session every request = no conversation memory. The AI forgets between turns. | Pass a stable per-conversation ID (e.g. `request.chatId`). |
-| Constructing the provider inside a route handler | Per-request `createHoncho()` calls lose the in-memory ID cache and re-emit auto-ID warnings on every call. | Construct once at module scope; re-use across requests. |
-
-## Resources
-
-- [Honcho docs](https://docs.honcho.dev) — concepts, dialectic chat, observation modes, workspace model
-- `honcho-integration` skill — generic Honcho integration (Python + TS), language-agnostic patterns
-- [`@honcho-ai/ai-sdk` README](../../README.md) — base install, environment variables, full API reference
-- [Vercel AI SDK docs](https://sdk.vercel.ai) — `generateText` / `streamText` / `generateObject` reference
-- [github.com/plastic-labs/vercel-ai-sdk-package](https://github.com/plastic-labs/vercel-ai-sdk-package) — issue tracker, source
-
-## Anti-patterns (things this skill tends to get wrong)
+## Anti-patterns
 
 | Anti-pattern | Correction |
 |---|---|
