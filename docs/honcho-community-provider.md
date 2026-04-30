@@ -1,6 +1,6 @@
 # Honcho
 
-`@honcho-ai/ai-sdk` wraps any AI SDK model with persistent, reasoning-backed user memory. [Honcho](https://honcho.dev) is not a conversation log -- it derives conclusions about users, builds evolving representations over time, and can answer natural language questions about users from their full interaction history.
+`@honcho-ai/vercel-ai-sdk` wraps any AI SDK model with persistent, reasoning-backed user memory. [Honcho](https://honcho.dev) is not a conversation log -- it derives conclusions about users, builds evolving representations over time, and can answer natural language questions about users from their full interaction history.
 
 The integration is middleware and tools that compose with whatever provider you're already using. Your model stays yours -- Anthropic, OpenAI, Google, anything with an AI SDK provider. Honcho injects relevant context into the system prompt before generation and persists messages after. The model also gets six tools it can call mid-conversation to query or update what it understands about the user.
 
@@ -9,7 +9,7 @@ The integration is middleware and tools that compose with whatever provider you'
 ## Setup
 
 ```bash
-bun add @honcho-ai/ai-sdk
+bun add @honcho-ai/vercel-ai-sdk
 ```
 
 ### API Key
@@ -26,7 +26,7 @@ export HONCHO_WORKSPACE_ID=your-workspace-id
 Create a Honcho provider instance with `createHoncho`:
 
 ```typescript
-import { createHoncho } from '@honcho-ai/ai-sdk';
+import { createHoncho } from '@honcho-ai/vercel-ai-sdk';
 
 const honcho = createHoncho({
   workspaceId: process.env.HONCHO_WORKSPACE_ID!,
@@ -112,7 +112,7 @@ Pass the same `userId` and `sessionId` to `honcho.tools()` so tool calls bind to
 A complete example with memory-augmented generation:
 
 ```typescript
-import { createHoncho } from '@honcho-ai/ai-sdk';
+import { createHoncho } from '@honcho-ai/vercel-ai-sdk';
 import { wrapLanguageModel, generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 
@@ -140,7 +140,7 @@ On the first turn, Honcho returns empty context. On subsequent turns, the model 
 ### `streamText`
 
 ```typescript
-import { createHoncho } from '@honcho-ai/ai-sdk';
+import { createHoncho } from '@honcho-ai/vercel-ai-sdk';
 import { wrapLanguageModel, streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
@@ -172,7 +172,7 @@ Messages are persisted after the stream completes. The middleware returns the pe
 ### Next.js Route Handler
 
 ```typescript
-import { createHoncho } from '@honcho-ai/ai-sdk';
+import { createHoncho } from '@honcho-ai/vercel-ai-sdk';
 import { wrapLanguageModel, streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 
@@ -249,19 +249,19 @@ const honcho = createHoncho({
 
 | Module | Import | Description |
 |---|---|---|
-| OpenAI | `@honcho-ai/ai-sdk/openai` | Direct OpenAI SDK integration (without AI SDK tool wrappers). |
-| Identity | `@honcho-ai/ai-sdk/identity` | Live identity documents backed by Honcho peer cards. |
+| OpenAI | `@honcho-ai/vercel-ai-sdk/openai` | Direct OpenAI SDK integration (without AI SDK tool wrappers). |
+| Identity | `@honcho-ai/vercel-ai-sdk/identity` | Live identity documents backed by Honcho peer cards. |
 
-> **Note:** The redesigned API no longer exposes `@honcho-ai/ai-sdk/multi-agent` as a separate entry point. Multi-peer scenarios are handled by varying `assistantId` per call.
+> **Note:** The redesigned API no longer exposes `@honcho-ai/vercel-ai-sdk/multi-agent` as a separate entry point. Multi-peer scenarios are handled by varying `assistantId` per call.
 
-### OpenAI (`@honcho-ai/ai-sdk/openai`)
+### OpenAI (`@honcho-ai/vercel-ai-sdk/openai`)
 
 Use this when you're integrating with the OpenAI SDK directly (without AI SDK tool wrappers).
 
 ```typescript
 import OpenAI from 'openai';
-import { createHoncho } from '@honcho-ai/ai-sdk';
-import { honchoOpenAITools } from '@honcho-ai/ai-sdk/openai';
+import { createHoncho } from '@honcho-ai/vercel-ai-sdk';
+import { honchoOpenAITools } from '@honcho-ai/vercel-ai-sdk/openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const honcho = createHoncho();

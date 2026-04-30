@@ -1,5 +1,5 @@
 {
-  "name": "@honcho-ai/ai-sdk",
+  "name": "@honcho-ai/vercel-ai-sdk",
   "version": "0.1.0",
   "description": "Honcho memory for the Vercel AI SDK -- persistent identity, theory-of-mind, dialectic reasoning",
   "type": "module",

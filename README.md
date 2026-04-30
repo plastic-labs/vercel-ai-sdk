@@ -1,4 +1,4 @@
-# @honcho-ai/ai-sdk
+# @honcho-ai/vercel-ai-sdk
 
 Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powered by [Honcho](https://honcho.dev).
 
@@ -6,14 +6,14 @@ Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powe
 
 Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. Reasoning, not retrieval from a vector DB.
 
-> Previously published as `@honcho/ai-sdk`. The new package has a flat config API (`honcho.middleware({ userId, sessionId })`) instead of the old session-handle chain. Uninstall `@honcho/ai-sdk` and install `@honcho-ai/ai-sdk`.
+> Previously published as `@honcho/ai-sdk`. The new package has a flat config API (`honcho.middleware({ userId, sessionId })`) instead of the old session-handle chain. Uninstall `@honcho/ai-sdk` and install `@honcho-ai/vercel-ai-sdk`.
 
 ## Use the skill
 
 The package ships an Anthropic Skill (SKILL.md) that walks an agent through wiring Honcho into your Vercel AI SDK app. After install, the skill lives at:
 
 ```
-node_modules/@honcho-ai/ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md
+node_modules/@honcho-ai/vercel-ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md
 ```
 
 Load it however your agent loads skills.
@@ -22,7 +22,7 @@ Load it however your agent loads skills.
 
 ```bash
 mkdir -p ~/.claude/skills/honcho-vercel-ai-sdk
-ln -sf "$(pwd)/node_modules/@honcho-ai/ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md" \
+ln -sf "$(pwd)/node_modules/@honcho-ai/vercel-ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md" \
        ~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md
 ```
 
@@ -35,7 +35,7 @@ The skill greps for your `generateText` / `streamText` call sites, asks where `u
 ## Install
 
 ```bash
-npm install @honcho-ai/ai-sdk
+npm install @honcho-ai/vercel-ai-sdk
 ```
 
 Requires `ai@^6` and Node.js `>=18`.
@@ -80,7 +80,7 @@ Override per call when needed, or disable session behavior with `sessionId: null
 ```ts
 import { generateText, wrapLanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { createHoncho } from "@honcho-ai/ai-sdk";
+import { createHoncho } from "@honcho-ai/vercel-ai-sdk";
 
 const honcho = createHoncho({
   defaultAssistantId: "assistant",
@@ -270,8 +270,8 @@ const anthropicMessages = context.toAnthropic("assistant");
 ## Experimental Modules
 
 These are still exposed as separate modules:
-- `@honcho-ai/ai-sdk/openai`
-- `@honcho-ai/ai-sdk/identity`
+- `@honcho-ai/vercel-ai-sdk/openai`
+- `@honcho-ai/vercel-ai-sdk/identity`
 
 ## Development
 

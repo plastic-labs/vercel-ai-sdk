@@ -5,7 +5,7 @@ export type {
   HonchoSendConfig,
 } from "./types.js";
 
-// Primary API -- re-export from ai-sdk so users can import from "@honcho-ai/ai-sdk" directly
+// Primary API -- re-export from ai-sdk so users can import from "@honcho-ai/vercel-ai-sdk" directly
 export { createHoncho } from "./ai-sdk/index.js";
 export type { HonchoProvider } from "./ai-sdk/index.js";
 

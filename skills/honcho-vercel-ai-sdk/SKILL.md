@@ -44,18 +44,18 @@ node --version                                        # require >= 18
 [[ -f package.json ]] || { echo "no package.json"; exit 1; }
 grep -q '"ai"' package.json || \
   echo "warning: 'ai' (Vercel AI SDK) not in package.json — confirm with the user"
-grep -q '"@honcho-ai/ai-sdk"' package.json && \
-  node -e "console.log(require('./node_modules/@honcho-ai/ai-sdk/package.json').version)" || \
-  echo "@honcho-ai/ai-sdk not installed yet"
+grep -q '"@honcho-ai/vercel-ai-sdk"' package.json && \
+  node -e "console.log(require('./node_modules/@honcho-ai/vercel-ai-sdk/package.json').version)" || \
+  echo "@honcho-ai/vercel-ai-sdk not installed yet"
 ```
 
 ### Gate: package check (catches the old `@honcho/ai-sdk` install)
 
-`@honcho-ai/ai-sdk` (this package) uses `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })`. The previous package, `@honcho/ai-sdk` (note: no `-ai`), used a different session-handle chain API (`honcho.session(...).middleware()`) and is no longer maintained. If the project still has the old package installed, switch before continuing — the middleware shape this skill uses doesn't apply.
+`@honcho-ai/vercel-ai-sdk` (this package) uses `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })`. The previous package, `@honcho/ai-sdk` (note: no `-ai`), used a different session-handle chain API (`honcho.session(...).middleware()`) and is no longer maintained. If the project still has the old package installed, switch before continuing — the middleware shape this skill uses doesn't apply.
 
 ```bash
 if grep -q '"@honcho/ai-sdk"' package.json; then
-  echo "error: legacy @honcho/ai-sdk detected. Run: npm uninstall @honcho/ai-sdk && npm install @honcho-ai/ai-sdk"
+  echo "error: legacy @honcho/ai-sdk detected. Run: npm uninstall @honcho/ai-sdk && npm install @honcho-ai/vercel-ai-sdk"
   exit 1
 fi
 ```
@@ -130,7 +130,7 @@ The integration is two edits per route:
 Add at the top of the route file (or a shared `lib/honcho.ts` if you have multiple routes):
 
 ```ts
-import { createHoncho } from "@honcho-ai/ai-sdk";
+import { createHoncho } from "@honcho-ai/vercel-ai-sdk";
 
 export const honcho = createHoncho({
   defaultAssistantId: "assistant",  // stable assistant identity
@@ -143,7 +143,7 @@ export const honcho = createHoncho({
 grep -E '^(HONCHO_API_KEY|HONCHO_WORKSPACE_ID)=' .env 2>/dev/null
 ```
 
-Gate edit on confirmation: "I'll add `import { createHoncho } from \"@honcho-ai/ai-sdk\"` and a module-scoped provider to `<file>:<line>`. OK?"
+Gate edit on confirmation: "I'll add `import { createHoncho } from \"@honcho-ai/vercel-ai-sdk\"` and a module-scoped provider to `<file>:<line>`. OK?"
 
 #### 2.2 Wrap the model with Honcho middleware
 
@@ -236,7 +236,7 @@ Ask the dev:
 
 1. What error or unexpected behavior? (Quote the error message verbatim if possible.)
 2. What's the `generateText` / `streamText` call shape? (`prompt` vs `messages`?)
-3. Versions: `node -e "console.log(require('./node_modules/@honcho-ai/ai-sdk/package.json').version)"` and `node -e "console.log(require('./node_modules/ai/package.json').version)"`
+3. Versions: `node -e "console.log(require('./node_modules/@honcho-ai/vercel-ai-sdk/package.json').version)"` and `node -e "console.log(require('./node_modules/ai/package.json').version)"`
 4. Is `HONCHO_API_KEY` set? (Don't print the key — just confirm presence.)
 
 ```bash
@@ -255,7 +255,7 @@ Match symptoms to causes. The first column is what the dev sees; the third colum
 | AI's responses leak into "what the user said" memory | `observe_me=True` on the AI peer (default for human peers, wrong for AI) | Set `observe_me=False` on the assistant peer. See [docs.honcho.dev](https://docs.honcho.dev) observation modes |
 | AI forgets the conversation between requests in the same chat | `sessionId` not stable across requests — generated fresh each time | Pass a stable per-conversation ID (e.g. `request.chatId`) as `sessionId`. Or omit it and let the provider auto-generate a single ID for the whole instance (single-user only) |
 | 401 on first model call | `HONCHO_API_KEY` not in env, or wrong workspace | Confirm `HONCHO_API_KEY` and `HONCHO_WORKSPACE_ID` in `.env` and the deployment config. Check honcho.dev dashboard for the key |
-| `Cannot find module '@honcho-ai/sdk'` | Peer dep missing — `@honcho-ai/ai-sdk` requires `@honcho-ai/sdk` to resolve at runtime | `npm install @honcho-ai/sdk` (or `bun add @honcho-ai/sdk`) |
+| `Cannot find module '@honcho-ai/sdk'` | Peer dep missing — `@honcho-ai/vercel-ai-sdk` requires `@honcho-ai/sdk` to resolve at runtime | `npm install @honcho-ai/sdk` (or `bun add @honcho-ai/sdk`) |
 
 ### Phase 3 — Apply fix
 
@@ -282,7 +282,7 @@ Both INTEGRATE and DEBUG converge here.
 import "dotenv/config";
 import { generateText, wrapLanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { createHoncho } from "@honcho-ai/ai-sdk";
+import { createHoncho } from "@honcho-ai/vercel-ai-sdk";
 
 const honcho = createHoncho({ defaultAssistantId: "assistant" });
 const model = wrapLanguageModel({
@@ -310,6 +310,6 @@ Requires `OPENAI_API_KEY` + `@ai-sdk/openai` (already installed from Phase 0).
 | Wrap the model without checking call shape | `prompt: string` and `messages: CoreMessage[]` are mutually exclusive. Confirm one or the other before editing. |
 | Hardcode `userId: "test"` for testing purposes | Persists in the actual file. Use the auth context the dev's app already exposes; don't introduce test fixtures into production code. |
 | Construct the provider inside the request handler | Provider holds an in-memory ID cache. Module-scope construction is correct; per-request is not. |
-| Insert `import { createHoncho } from "@honcho-ai/ai-sdk"` without confirming the package is installed | If the import lands in a file before the package is in `package.json`, the build breaks. Confirm `npm install @honcho-ai/ai-sdk` first. |
+| Insert `import { createHoncho } from "@honcho-ai/vercel-ai-sdk"` without confirming the package is installed | If the import lands in a file before the package is in `package.json`, the build breaks. Confirm `npm install @honcho-ai/vercel-ai-sdk` first. |
 | Treat "the call returns text" as success in Phase N | Middleware errors are non-blocking by default — the call returns text whether Honcho fired or not. The verification has to confirm middleware actually ran (logs, dashboard, or smoke script). |
 | Skip Phase 0's package check on a pre-existing install | The legacy `@honcho/ai-sdk` package used a session-handle chain. Applying this skill's patterns to a project that still has the legacy package produces a TypeScript error and confused users. |
