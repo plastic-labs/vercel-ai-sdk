@@ -49,17 +49,6 @@ grep -q '"@honcho-ai/vercel-ai-sdk"' package.json && \
   echo "@honcho-ai/vercel-ai-sdk not installed yet"
 ```
 
-### Gate: package check (catches the old `@honcho/ai-sdk` install)
-
-`@honcho-ai/vercel-ai-sdk` (this package) uses `wrapLanguageModel({ model, middleware: honcho.middleware({...}) })`. The previous package, `@honcho/ai-sdk` (note: no `-ai`), used a different session-handle chain API (`honcho.session(...).middleware()`) and is no longer maintained. If the project still has the old package installed, switch before continuing — the middleware shape this skill uses doesn't apply.
-
-```bash
-if grep -q '"@honcho/ai-sdk"' package.json; then
-  echo "error: legacy @honcho/ai-sdk detected. Run: npm uninstall @honcho/ai-sdk && npm install @honcho-ai/vercel-ai-sdk"
-  exit 1
-fi
-```
-
 ### Gate: route INTEGRATE / DEBUG
 
 Use **AskUserQuestion**:
@@ -312,4 +301,3 @@ Requires `OPENAI_API_KEY` + `@ai-sdk/openai` (already installed from Phase 0).
 | Construct the provider inside the request handler | Provider holds an in-memory ID cache. Module-scope construction is correct; per-request is not. |
 | Insert `import { createHoncho } from "@honcho-ai/vercel-ai-sdk"` without confirming the package is installed | If the import lands in a file before the package is in `package.json`, the build breaks. Confirm `npm install @honcho-ai/vercel-ai-sdk` first. |
 | Treat "the call returns text" as success in Phase N | Middleware errors are non-blocking by default — the call returns text whether Honcho fired or not. The verification has to confirm middleware actually ran (logs, dashboard, or smoke script). |
-| Skip Phase 0's package check on a pre-existing install | The legacy `@honcho/ai-sdk` package used a session-handle chain. Applying this skill's patterns to a project that still has the legacy package produces a TypeScript error and confused users. |

@@ -3,7 +3,6 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: [
     "src/index.ts",
-    "src/ai-sdk/index.ts",
     "src/openai/index.ts",
     "src/identity/index.ts",
   ],

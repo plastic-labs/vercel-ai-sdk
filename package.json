@@ -12,10 +12,6 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./ai-sdk": {
-      "import": "./dist/ai-sdk/index.js",
-      "types": "./dist/ai-sdk/index.d.ts"
-    },
     "./openai": {
       "import": "./dist/openai/index.js",
       "types": "./dist/openai/index.d.ts"

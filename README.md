@@ -6,8 +6,6 @@ Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powe
 
 Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. Reasoning, not retrieval from a vector DB.
 
-> Previously published as `@honcho/ai-sdk`. The new package has a flat config API (`honcho.middleware({ userId, sessionId })`) instead of the old session-handle chain. Uninstall `@honcho/ai-sdk` and install `@honcho-ai/vercel-ai-sdk`.
-
 ## Use the skill
 
 The package ships an Anthropic Skill (SKILL.md) that walks an agent through wiring Honcho into your Vercel AI SDK app. After install, the skill lives at:
