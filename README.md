@@ -2,7 +2,7 @@
 
 Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powered by [Honcho](https://honcho.dev).
 
-> **Memory that thinks about your users, not memory that retrieves what they said.**
+> **Memory that reasons, not just recalls.**
 
 Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. Reasoning, not retrieval from a vector DB.
 

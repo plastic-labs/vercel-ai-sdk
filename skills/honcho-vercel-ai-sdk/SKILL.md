@@ -7,7 +7,7 @@ user-invocable: true
 
 # Add Honcho memory to a Vercel AI SDK app
 
-> **Memory that thinks about your users, not memory that retrieves what they said.**
+> **Memory that reasons, not just recalls.**
 
 - Follow each phase in order. Do not skip preflight.
 - This skill is edit-driven — it reads the dev's codebase, identifies fit, and edits in place. Confirm before each file write.
