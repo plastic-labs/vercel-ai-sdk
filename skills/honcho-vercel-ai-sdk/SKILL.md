@@ -268,7 +268,6 @@ Both INTEGRATE and DEBUG converge here.
 
 ```ts
 // .smoke.mjs (delete after running)
-import "dotenv/config";
 import { generateText, wrapLanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { createHoncho } from "@honcho-ai/vercel-ai-sdk";
@@ -287,7 +286,7 @@ console.log("MODEL_OUT:", text);
 bun .smoke.mjs && rm .smoke.mjs
 ```
 
-Requires `OPENAI_API_KEY` + `@ai-sdk/openai` (already installed from Phase 0).
+Requires `OPENAI_API_KEY` + `@ai-sdk/openai` (already installed from Phase 0). Bun auto-loads `.env` from cwd; on node use `node --env-file=.env .smoke.mjs`.
 
 
 ---
