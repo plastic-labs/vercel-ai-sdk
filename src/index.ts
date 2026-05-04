@@ -5,9 +5,8 @@ export type {
   HonchoSendConfig,
 } from "./types.js";
 
-// Primary API -- re-export from ai-sdk so users can import from "@honcho-ai/ai-sdk" directly
-export { createHoncho } from "./ai-sdk/index.js";
-export type { HonchoProvider } from "./ai-sdk/index.js";
+export { createHoncho } from "./provider/index.js";
+export type { HonchoProvider } from "./provider/index.js";
 
 export { TOOL_DESCRIPTIONS, PARAM_DESCRIPTIONS, DEFAULTS } from "./shared/descriptions.js";
 

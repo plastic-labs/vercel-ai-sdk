@@ -7,7 +7,7 @@ import type {
   LanguageModelV3StreamResult,
 } from '@ai-sdk/provider';
 
-import { createHoncho } from '../../src/ai-sdk/index.js';
+import { createHoncho } from '../../src/provider/index.js';
 import {
   hasHonchoCredentials,
   nanoidNamespace,

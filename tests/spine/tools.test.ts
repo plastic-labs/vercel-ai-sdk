@@ -24,7 +24,7 @@ vi.mock('@honcho-ai/sdk', async () => {
 });
 
 async function importHoncho() {
-  return await import('../../src/ai-sdk/index.js');
+  return await import('../../src/provider/index.js');
 }
 
 beforeEach(() => {

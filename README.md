@@ -1,13 +1,39 @@
-# @honcho-ai/ai-sdk
+# @honcho-ai/vercel-ai-sdk
 
 Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powered by [Honcho](https://honcho.dev).
 
-> Previously published as `@honcho/ai-sdk`. The new package has a flat config API (`honcho.middleware({ userId, sessionId })`) instead of the old session-handle chain. Uninstall `@honcho/ai-sdk` and install `@honcho-ai/ai-sdk`.
+> **Memory that reasons, not just recalls.**
+
+Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. Reasoning, not retrieval from a vector DB.
+
+## Use the skill
+
+The package ships an Anthropic Skill (SKILL.md) that walks an agent through wiring Honcho into your Vercel AI SDK app. After install, the skill lives at:
+
+```
+node_modules/@honcho-ai/vercel-ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md
+```
+
+Load it however your agent loads skills.
+
+**Claude Code:**
+
+```bash
+mkdir -p ~/.claude/skills/honcho-vercel-ai-sdk
+ln -sf "$(pwd)/node_modules/@honcho-ai/vercel-ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md" \
+       ~/.claude/skills/honcho-vercel-ai-sdk/SKILL.md
+```
+
+Restart the session, then invoke `/honcho-vercel-ai-sdk`.
+
+**Other agents (Codex, Cursor, etc.):** point your agent at the SKILL.md path, or paste its contents into the agent's instructions surface. The format is plain markdown with YAML frontmatter — readable by any agent that supports skill-style instructions.
+
+The skill greps for your `generateText` / `streamText` call sites, asks where `userId` / `sessionId` come from, and applies the integration in place.
 
 ## Install
 
 ```bash
-npm install @honcho-ai/ai-sdk
+npm install @honcho-ai/vercel-ai-sdk
 ```
 
 Requires `ai@^6` and Node.js `>=18`.
@@ -50,20 +76,24 @@ Override per call when needed, or disable session behavior with `sessionId: null
 ## Quick Start
 
 ```ts
-import { generateText } from "ai";
+import { generateText, wrapLanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { createHoncho } from "@honcho-ai/ai-sdk";
+import { createHoncho } from "@honcho-ai/vercel-ai-sdk";
 
 const honcho = createHoncho({
   defaultAssistantId: "assistant",
 });
 
-const { text } = await generateText({
+const model = wrapLanguageModel({
   model: openai("gpt-4o-mini"),
   middleware: honcho.middleware({
     userId: request.user.id,
     sessionId: request.chatId,
   }),
+});
+
+const { text } = await generateText({
+  model,
   prompt: "What should I focus on today?",
 });
 ```
@@ -76,9 +106,13 @@ pass `userId` plus `sessionId` from request context.
 ```ts
 const honcho = createHoncho();
 
-const { text } = await generateText({
+const model = wrapLanguageModel({
   model: openai("gpt-4o-mini"),
   middleware: honcho.middleware(),
+});
+
+const { text } = await generateText({
+  model,
   tools: honcho.tools(),
   maxSteps: 3,
   prompt: "What should I focus on today?",
@@ -97,10 +131,12 @@ disabled per call with `sessionId: null`:
 
 ```ts
 const { text } = await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    userId: "user-123",
-    sessionId: "chat-456",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      userId: "user-123",
+      sessionId: "chat-456",
+    }),
   }),
   prompt: "What should I focus on today?",
 });
@@ -114,10 +150,12 @@ With session mode active:
 
 ```ts
 const { text } = await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    userId: "user-123",
-    sessionId: "chat-456",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      userId: "user-123",
+      sessionId: "chat-456",
+    }),
   }),
   tools: honcho.tools({
     userId: "user-123",
@@ -142,11 +180,13 @@ If you already pass a `messages` array to `generateText`, disable Honcho history
 
 ```ts
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    userId: "user-123",
-    sessionId: "chat-456",
-    injectHistory: false,
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      userId: "user-123",
+      sessionId: "chat-456",
+      injectHistory: false,
+    }),
   }),
   messages: conversationHistory,
 });
@@ -158,11 +198,13 @@ Choose which AI peer is generating with `assistantId`:
 
 ```ts
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    assistantId: "agent-coordinator",
-    userId: "alice",
-    sessionId: "group-123",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      assistantId: "agent-coordinator",
+      userId: "alice",
+      sessionId: "group-123",
+    }),
   }),
   prompt: "Coordinate next steps for Alice.",
 });
@@ -170,11 +212,13 @@ await generateText({
 
 ```ts
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    assistantId: "agent-specialist",
-    userId: "bob",
-    sessionId: "group-123",
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      assistantId: "agent-specialist",
+      userId: "bob",
+      sessionId: "group-123",
+    }),
   }),
   prompt: "Respond as specialist for Bob.",
 });
@@ -192,12 +236,14 @@ await honcho.send({
 });
 
 await generateText({
-  model: openai("gpt-4o-mini"),
-  middleware: honcho.middleware({
-    assistantId: "coordinator",
-    userId: "alice",
-    sessionId: "group-123",
-    persistInput: false,
+  model: wrapLanguageModel({
+    model: openai("gpt-4o-mini"),
+    middleware: honcho.middleware({
+      assistantId: "coordinator",
+      userId: "alice",
+      sessionId: "group-123",
+      persistInput: false,
+    }),
   }),
   prompt: "Can you help me plan this sprint?",
 });
@@ -222,8 +268,8 @@ const anthropicMessages = context.toAnthropic("assistant");
 ## Experimental Modules
 
 These are still exposed as separate modules:
-- `@honcho-ai/ai-sdk/openai`
-- `@honcho-ai/ai-sdk/identity`
+- `@honcho-ai/vercel-ai-sdk/openai`
+- `@honcho-ai/vercel-ai-sdk/identity`
 
 ## Development
 

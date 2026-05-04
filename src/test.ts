@@ -1,5 +1,5 @@
 /**
- * Live integration script for the flat @honcho-ai/ai-sdk API.
+ * Live integration script for the flat @honcho-ai/vercel-ai-sdk API.
  *
  * Required env:
  * - HONCHO_API_KEY
@@ -11,7 +11,7 @@
  * - OPENAI_API_KEY (enables generateText middleware checks)
  */
 
-import { createHoncho } from "./ai-sdk/index.js";
+import { createHoncho } from "./provider/index.js";
 
 const WORKSPACE_ID = process.env.HONCHO_WORKSPACE_ID;
 const USER_ID = process.env.HONCHO_USER_ID ?? "test-user";
@@ -130,7 +130,7 @@ async function testMiddleware(honcho: ReturnType<typeof createHoncho>): Promise<
 
   printSection("Middleware (generateText)");
 
-  const { generateText } = await import("ai");
+  const { generateText, wrapLanguageModel } = await import("ai");
   let openai: any;
   try {
     ({ openai } = await import("@ai-sdk/openai"));
@@ -141,21 +141,25 @@ async function testMiddleware(honcho: ReturnType<typeof createHoncho>): Promise<
 
   // Context-only (no session)
   const contextOnly = await generateText({
-    model: openai("gpt-4o-mini"),
-    middleware: honcho.middleware({ userId: USER_ID }),
+    model: wrapLanguageModel({
+      model: openai("gpt-4o-mini"),
+      middleware: honcho.middleware({ userId: USER_ID }),
+    }),
     prompt: "Say hello in one short sentence.",
   });
   console.log("context-only text:", contextOnly.text.slice(0, 120));
 
   // Session + persistence
   const withSession = await generateText({
-    model: openai("gpt-4o-mini"),
-    middleware: honcho.middleware({
-      userId: USER_ID,
-      sessionId: SESSION_ID,
-      assistantId: ASSISTANT_ID,
-      persistInput: true,
-      injectHistory: true,
+    model: wrapLanguageModel({
+      model: openai("gpt-4o-mini"),
+      middleware: honcho.middleware({
+        userId: USER_ID,
+        sessionId: SESSION_ID,
+        assistantId: ASSISTANT_ID,
+        persistInput: true,
+        injectHistory: true,
+      }),
     }),
     prompt: "Give one short productivity suggestion.",
   });
@@ -163,13 +167,15 @@ async function testMiddleware(honcho: ReturnType<typeof createHoncho>): Promise<
 
   // Session + no input persistence
   const noInputPersist = await generateText({
-    model: openai("gpt-4o-mini"),
-    middleware: honcho.middleware({
-      userId: USER_ID,
-      sessionId: SESSION_ID,
-      assistantId: ASSISTANT_ID,
-      persistInput: false,
-      injectHistory: true,
+    model: wrapLanguageModel({
+      model: openai("gpt-4o-mini"),
+      middleware: honcho.middleware({
+        userId: USER_ID,
+        sessionId: SESSION_ID,
+        assistantId: ASSISTANT_ID,
+        persistInput: false,
+        injectHistory: true,
+      }),
     }),
     prompt: "Give one short reflection prompt.",
   });
@@ -184,7 +190,7 @@ async function inspectSession(honcho: ReturnType<typeof createHoncho>): Promise<
 }
 
 async function main(): Promise<void> {
-  console.log("=== @honcho-ai/ai-sdk flat API integration script ===");
+  console.log("=== @honcho-ai/vercel-ai-sdk flat API integration script ===");
   console.log(`workspace=${WORKSPACE_ID}`);
   console.log(`user=${USER_ID}`);
   console.log(`session=${SESSION_ID}`);
