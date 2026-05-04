@@ -11,7 +11,7 @@
  * - OPENAI_API_KEY (enables generateText middleware checks)
  */
 
-import { createHoncho } from "./ai-sdk/index.js";
+import { createHoncho } from "./provider/index.js";
 
 const WORKSPACE_ID = process.env.HONCHO_WORKSPACE_ID;
 const USER_ID = process.env.HONCHO_USER_ID ?? "test-user";
