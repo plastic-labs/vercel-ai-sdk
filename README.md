@@ -27,7 +27,7 @@ Then invoke `/honcho-vercel-ai-sdk`.
 <details>
 <summary>Alternative: manual symlink from npm package</summary>
 
-If you've already installed `@honcho-ai/vercel-ai-sdk` via npm, you can symlink the skill directly. Example shown is for claude code:
+If you've already installed `@honcho-ai/vercel-ai-sdk` via npm, you can symlink the skill directly. Example shown is for Claude Code:
 
 ```bash
 mkdir -p ~/.claude/skills/honcho-vercel-ai-sdk
