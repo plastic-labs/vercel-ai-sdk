@@ -4,19 +4,30 @@ Memory middleware and tools for the [Vercel AI SDK](https://sdk.vercel.ai), powe
 
 > **Memory that reasons, not just recalls.**
 
-Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. Reasoning, not retrieval from a vector DB.
+Honcho models the user behind the conversation — preferences, patterns, what they've told you over time — and injects that model into your prompts. Reasoning, not just retrieval from a vector DB.
+
+## Install
+
+```bash
+npm install @honcho-ai/vercel-ai-sdk
+```
+
+Requires `ai@^6` and Node.js `>=18`.
 
 ## Use the skill
 
-The package ships an Anthropic Skill (SKILL.md) that walks an agent through wiring Honcho into your Vercel AI SDK app. After install, the skill lives at:
+The package ships a Skill that walks an agent through wiring Honcho into your Vercel AI SDK app. The skill greps for your `generateText` / `streamText` call sites, asks where `userId` / `sessionId` come from, and applies the integration in place.
 
+```bash
+npx skills add plastic-labs/vercel-ai-sdk
 ```
-node_modules/@honcho-ai/vercel-ai-sdk/skills/honcho-vercel-ai-sdk/SKILL.md
-```
 
-Load it however your agent loads skills.
+Then invoke `/honcho-vercel-ai-sdk`.
 
-**Claude Code:**
+<details>
+<summary>Alternative: manual symlink from npm package</summary>
+
+If you've already installed `@honcho-ai/vercel-ai-sdk` via npm, you can symlink the skill directly. Example shown is for claude code:
 
 ```bash
 mkdir -p ~/.claude/skills/honcho-vercel-ai-sdk
@@ -26,17 +37,8 @@ ln -sf "$(pwd)/node_modules/@honcho-ai/vercel-ai-sdk/skills/honcho-vercel-ai-sdk
 
 Restart the session, then invoke `/honcho-vercel-ai-sdk`.
 
-**Other agents (Codex, Cursor, etc.):** point your agent at the SKILL.md path, or paste its contents into the agent's instructions surface. The format is plain markdown with YAML frontmatter — readable by any agent that supports skill-style instructions.
+</details>
 
-The skill greps for your `generateText` / `streamText` call sites, asks where `userId` / `sessionId` come from, and applies the integration in place.
-
-## Install
-
-```bash
-npm install @honcho-ai/vercel-ai-sdk
-```
-
-Requires `ai@^6` and Node.js `>=18`.
 
 ## Environment
 
